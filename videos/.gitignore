@@ -1,0 +1,11 @@
+api_key
+tts_key
+anthropic_key
+2024-*
+env/
+.env/
+latest
+__pycache__/
+fonts
+*.mp3
+workflow_config.txt

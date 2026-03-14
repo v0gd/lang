@@ -1,0 +1,8 @@
+{
+    "editor.rulers": [
+        80
+    ],
+    "pylint.args": [
+        "--disable=missing-function-docstring,missing-class-docstring,missing-module-docstring,fixme,line-too-long,too-many-lines"
+    ],
+}

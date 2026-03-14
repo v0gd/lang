@@ -1,0 +1,11 @@
+/.openai
+/.anthropic
+/.aws
+*.png
+.DS_Store
+env
+env.sh
+/cache
+.vscode/launch.json
+__debug_bin*
+google-service-acc.json

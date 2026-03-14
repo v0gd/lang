@@ -1,0 +1,19 @@
+[Unit]
+Description=Lang API Go Service
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/l-api
+EnvironmentFile=/etc/l-api/env
+ExecStart=/var/www/l-api/build/l-api
+StandardOutput=append:/var/log/l-api/stdout.log
+StandardError=append:/var/log/l-api/error.log
+Restart=always
+RestartSec=5s
+RestartSteps=3
+RestartMaxDelaySec=30s
+
+[Install]
+WantedBy=multi-user.target

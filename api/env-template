@@ -1,0 +1,12 @@
+AWS_POLLY_ACCESS_KEY_ID=********************
+AWS_POLLY_SECRET_ACCESS_KEY=********************
+ANTHROPIC_API_KEY=********************
+OPENAI_API_KEY=********************
+GOOGLE_APPLICATION_CREDENTIALS=/etc/l-api/google-service-acc.json
+LANG_API_CACHE_DIR=/var/cache/l-api
+LANG_API_STORIES_DIR=/var/www/l-api/stories
+LANG_API_DEPLOY_CONFIG_DIR=/var/www/l-api/stories/deploy
+LANG_API_ALLOWED_ORIGIN=https://polypup.org
+LANG_API_DEBUG_MODE=0
+LANG_API_IS_DEV=0
+LANG_API_DB_PASSWORD=********************

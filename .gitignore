@@ -1,0 +1,8 @@
+.DS_Store
+.vscode/launch.json
+__pycache__/
+*.py[cod]
+node_modules/
+.venv/
+venv/
+*.log

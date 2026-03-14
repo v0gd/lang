@@ -1,0 +1,189 @@
+beneath-peeling-paint-c1 B2-C1
+
+en, de, ru
+
+/t { "titles": ["Beneath the Peeling Paint", "Unter der abblätternden Farbe", "Под облупившейся краской"], "image_id": "4" } 
+
+/c { "titles": ["Chapter I", "Kapitel I", "Глава I"] }
+
+/s 
+
+The phone rang, its shrill ringing || slicing through the quiet of Clara's afternoon.
+Das schrille Klingeln des Telefons || durchbrach die Stille von Claras Nachmittag.
+Зазвонил телефон, его резкий шум || нарушил тишину дня Клары.
+
+It was Beatrice, an old friend from her hometown, a voice barely heard in years.
+Es war Beatrice, eine alte Freundin aus ihrer Heimatstadt, eine Stimme, die sie seit Jahren kaum noch gehört hatte.
+Это была Беатрис, старая подруга из родного города, голос которой она почти не слышала долгие годы.
+
+/s
+
+News traveled fast in that small community.
+Nachrichten verbreiteten sich schnell in dieser kleinen Gemeinde.
+В этой маленькой общине новости распространялись быстро.
+
+"Clara," Beatrice's voice held a softness that hinted at sorrow, "I thought you should know...they're tearing down your old house."
+"Clara", Beatrices Stimme klang sanft, mit einem Hauch von Trauer, "ich dachte, du solltest wissen... sie reißen dein altes Haus ab."
+"Клара," – в голосе Беатрис звучала мягкость, намекавшая на печаль, – "я подумала, ты должна знать... они сносят твой старый дом".
+
+/p
+
+/s
+
+The words echoed inside her, stirring a bittersweet mix of nostalgia and regret.
+Die Worte hallten in ihr wider und weckten eine bittersüße Mischung aus Nostalgie und Bedauern.
+Слова эхом отозвались в ее душе́, вызывая горько—сладкую смесь ностальгии и сожаления.
+
+
+It wasn't just about the building, but about the house, the one filled with the sounds of her childhood.
+Es ging nicht nur um das Gebäude, sondern um das Haus, erfüllt von der Musik ihrer Kindheit.
+Дело было не просто в здании, а в доме, в том самом доме, наполненном музыкой ее детства.
+
+/s
+
+She realized with a pang that she hadn't stepped over that threshold in four decades, too caught up in her own busy life.
+Mit einem Stich im Herzen wurde ihr klar, dass sie diese Schwelle seit vier Jahrzehnten nicht mehr überschritten hatte, zu sehr beschäftigt mit ihrem eigenen Leben.
+С болью она поняла, что не переступала этот порог уже четыре десятилетия, слишком поглощенная собственной суетливой жизнью.
+
+/s
+
+Driven by a mix of longing and a strange sense of obligation, she set off on her way.
+Angetrieben von einer Mischung aus Sehnsucht und einem seltsamen Pflichtgefühl, machte sie sich auf den Weg.
+Движимая смесью тоски и странного чувства долга, она приехала.
+
+
+/c { "titles": ["Chapter II", "Kapitel II", "Глава II"] }
+
+
+The paint, once crisp white, hung in sad, peeling strips.
+Die einst strahlend weiße Farbe hing in traurigen, abblätternden Streifen herab.
+Краска, когда—то ярко—белая, свисала грустными, облупившимися полосками.
+
+Weeds sprouted brazenly through cracks in the sidewalk.
+Unkraut spross dreist durch die Risse im Bürgersteig.
+Сквозь трещины в тротуаре нагло пробивались сорняки.
+
+Yet, it was the silence that was most striking.
+Doch am auffälligsten war die Stille.
+Но больше всего поражала тишина.
+
+/p { "image_id": "18" }
+
+Inside, she didn't need to see.
+Drinnen musste sie sich nicht auf ihre Augen verlassen.
+Внутри ей не нужно было полагаться на зрение.
+
+Her feet knew the way.
+Ihre Füße kannten den Weg.
+Ее ноги знали дорогу.
+
+The kitchen still carried the faintest hint of cinnamon and vanilla.
+Die Küche trug noch den leisesten Hauch von Zimt und Vanille.
+На кухне все еще витал слабый запах корицы и ванили.
+
+/s
+
+She closed her eyes, seeing herself: a small girl with flour—dusted hands playing with a beloved doll on the worn linoleum.
+Sie schloss die Augen und sah sich selbst: ein kleines Mädchen mit mehlbestäubten Händen, das mit einer geliebten Puppe auf dem abgenutzten Linoleum spielte.
+Она закрыла глаза, видя себя: маленькую девочку с руками в муке, играющую с любимой куклой на потертом линолеуме.
+
+/s
+
+There was the delicious warmth of her mother's bustling presence, the comforting smell of apple pie baking in the old stove.
+Sie spürte die köstliche Wärme und Geschäftigkeit ihrer Mutter, den beruhigenden Duft von Apfelkuchen, der im alten Ofen buk.
+Здесь было приятное (дословно "вкусное") тепло суетливого присутствия матери, ее уютный запах яблочного пирога, пекущегося в старой духовке.
+
+/p
+
+Outside, the garden was a riot of tangled overgrowth.
+Draußen im Garten wucherten die Pflanzen wild.
+Снаружи сад представлял собой буйство спутанной поросли.
+
+This was her father's domain, where the scent of earth and tomato vines was a balm to her soul.
+Das hier war das Reich ihres Vaters, wo für sie der Duft von Erde und Tomatenranken den Inbegriff von Geborgenheit darstellte.
+Это были владения ее отца, где аромат земли и помидоров был бальзамом для ее души.
+
+/s
+
+She still remembered helping him plant seeds, her small hands clumsy beside his large, calloused ones.
+Sie erinnerte sich noch daran, wie sie ihm beim Pflanzen half, ihre kleinen Hände ungeschickt neben seinen großen, schwieligen.
+Она до сих пор помнила, как помогала ему сажать семена, ее маленькие неуклюжие ручки рядом с его большими мозолистыми ладонями.
+
+/p
+
+The stairs beckoned.
+Die Treppe lud sie ein.
+Лестница манила.
+
+Each step triggered the familiar creak, instantly summoning a memory of her brother – the mischievous grin, the shock of red hair.
+Jede Stufe ließ das vertraute Knarren erklingen und beschwor sofort eine Erinnerung an ihren Bruder herauf — das verschmitzte Grinsen, die rote Haarpracht.
+Каждый шаг создавал знакомый скрип, мгновенно вызывая воспоминание о ее брате – озорную ухмылку, копну рыжих волос.
+
+/s
+
+He'd hide behind corners, unleashing a torrent of tickles before escaping upstairs with shrieks of laughter.
+Er versteckte sich hinter Ecken, setze zu einem Kitzelangriff an, bevor er mit schallendem Gelächter nach oben flüchtete.
+Он прятался за углами, обрушивая на нее поток щекоток, прежде чем с криками и смехом убежать наверх.
+
+/s
+
+As they grew, their playful rivalry faded into a quiet bond.
+Als sie älter wurden, verblasste ihre spielerische Rivalität zu einer stillen Verbundenheit.
+Когда они подросли, их игривое соперничество сменилось тихой привязанностью.
+
+
+He'd defend her against schoolyard bullies or walk her home after dark.
+Er verteidigte sie gegen Schulhof—Tyrannen oder begleitete sie nach Einbruch der Dunkelheit nach Hause.
+Он защищал ее от школьных хулиганов или провожал домой после наступления темноты.
+
+/s
+
+His voice, a steady stream of jokes and stories, chased away any lingering fears and brought a smile to her face.
+Seine Stimme, ein stetiger Strom von Witzen und Geschichten, verscheuchte jede Angst und zauberte ihr ein Lächeln ins Gesicht.
+Его голос, нескончаемый поток шуток и историй, прогонял любые страхи и возвращал улыбку на ее лицо.
+
+/p
+
+The bedroom waited, a shrine to heartbreak.
+Das Schlafzimmer wartete, ein Schrein für den Herzschmerz.
+Спальня ждала, святилище разбитого сердца.
+
+/s
+
+The canopy bed, once a place of dreamy stories, now conjured a different image: tear—stained pillows, a crumpled letter, the agonizing first taste of adult sorrow.
+Das Himmelbett, einst ein Ort verträumter Geschichten, rief nun ein anderes Bild hervor: tränenbefleckte Kissen, ein zerknitterter Brief, der quälende erste Geschmack des Erwachsenendaseins.
+Кровать с балдахином, когда—то место мечтательных историй, теперь вызывала другой образ: залитые слезами подушки, скомканное письмо, мучительный первый вкус взрослой печали.
+
+/p { "image_id": "8" }
+
+Finally, she stood at the threshold, her hand hovering over the tarnished door handle.
+Schließlich stand sie an der Schwelle, ihre Hand schwebte über dem angelaufenen Türknauf.
+Наконец, она остановилась у порога, ее рука зависла над потускневшей дверной ручкой.
+
+With a deep breath, she turned it.
+Mit einem tiefen Atemzug drehte sie ihn um.
+Глубоко вдохнув, она повернула ее.
+
+A wave of sadness, sharp and unexpected, washed over her.
+Eine Welle der Trauer, scharf und unerwartet, überkam sie.
+Волна грусти, острая и неожиданная, захлестнула ее.
+
+/s
+
+She wasn't weeping for the crumbling walls, but for the people who had filled them with life.
+Sie weinte nicht um die bröckelnden Mauern, sondern um die Menschen, die sie mit Leben gefüllt hatten.
+Она плакала не по ветхим стенам, а по людям, которые наполняли их жизнью.
+
+Leaving, she closed the door softly, a silent requiem.
+Als sie ging, schloss sie leise die Tür, ein stilles Requiem.
+Уходя, она тихо закрыла дверь, как безмолвный реквием.
+
+/s
+
+To passersby, it was simply an old house awaiting its end.
+Für die Passanten war es nur ein altes Haus, das auf sein Ende wartete.
+Для прохожих это был просто старый дом, ожидающий своего конца.
+
+But for her, the air crackled with unseen presences.
+Aber für sie knisterte die Luft von unsichtbaren Präsenzen.
+Но для нее воздух искрился невидимым присутствием.

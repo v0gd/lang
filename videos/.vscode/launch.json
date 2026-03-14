@@ -1,0 +1,17 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python Debugger: Lang Videos",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/video2.py",
+            "args": ["000-test/C1", "en_de"],
+            "console": "integratedTerminal",
+            "justMyCode": false
+        }
+    ]
+}

@@ -1,0 +1,15 @@
+pillow==9.5.0
+types-Pillow==9.5.0
+moviepy
+scipy
+numpy
+imageio
+openai
+elevenlabs
+mmh3
+# pyside6  # breaks mypy extension
+
+# linters and formaters
+black
+mypy
+pylint

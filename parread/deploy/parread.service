@@ -1,0 +1,19 @@
+[Unit]
+Description=Parallel Reader
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/parread/backend
+EnvironmentFile=/etc/parread/env
+ExecStart=/var/www/parread/backend/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+StandardOutput=append:/var/log/parread/stdout.log
+StandardError=append:/var/log/parread/error.log
+Restart=always
+RestartSec=5s
+RestartSteps=3
+RestartMaxDelaySec=30s
+
+[Install]
+WantedBy=multi-user.target

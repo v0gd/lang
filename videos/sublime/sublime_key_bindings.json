@@ -1,0 +1,60 @@
+[
+	{
+	    "keys": ["ctrl+shift+h"],
+	    "command": "highlight_numbers"
+	},
+    {
+        "keys": ["ctrl+shift+p"],
+        "command": "line_length_display"
+    },
+    {
+        "keys": ["ctrl+0"],
+        "command": "add_number_to_token",
+        "args": {"number": 0}
+    },
+    {
+        "keys": ["ctrl+1"],
+        "command": "add_number_to_token",
+        "args": {"number": 1}
+    },
+    {
+        "keys": ["ctrl+2"],
+        "command": "add_number_to_token",
+        "args": {"number": 2}
+    },
+    {
+        "keys": ["ctrl+3"],
+        "command": "add_number_to_token",
+        "args": {"number": 3}
+    },
+    {
+        "keys": ["ctrl+4"],
+        "command": "add_number_to_token",
+        "args": {"number": 4}
+    },
+    {
+        "keys": ["ctrl+5"],
+        "command": "add_number_to_token",
+        "args": {"number": 5}
+    },
+    {
+        "keys": ["ctrl+6"],
+        "command": "add_number_to_token",
+        "args": {"number": 6}
+    },
+    {
+        "keys": ["ctrl+7"],
+        "command": "add_number_to_token",
+        "args": {"number": 7}
+    },
+    {
+        "keys": ["ctrl+8"],
+        "command": "add_number_to_token",
+        "args": {"number": 8}
+    },
+    {
+        "keys": ["ctrl+9"],
+        "command": "add_number_to_token",
+        "args": {"number": 9}
+    }
+]
