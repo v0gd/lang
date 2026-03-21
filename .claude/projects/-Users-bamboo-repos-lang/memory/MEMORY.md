@@ -1,0 +1,1 @@
+- [feedback_no_subproject_info_in_toplevel.md](feedback_no_subproject_info_in_toplevel.md) — Keep top-level files as brief pointers; put project-specific details in subdirectory README/CLAUDE files
