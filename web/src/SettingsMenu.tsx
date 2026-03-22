@@ -1,9 +1,10 @@
 import { Modal } from "./Modal";
-import { Settings } from "./settings";
+import { Settings, Theme } from "./settings";
 import { LanguageDropdown } from "./LanguageDropdown";
 import { lstr } from "./localization";
 import { auth, useLoggedIn } from "./firebase";
 import { useNavigate } from "react-router-dom";
+import { HiMoon, HiSun } from "react-icons/hi2";
 
 function SettingsMenu({
   settings,
@@ -48,6 +49,29 @@ function SettingsMenu({
               setSettings({ ...settings, rLocale: value })
             }
           />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="min-w-[100px] text-sm text-secondary-text">
+            Theme
+          </div>
+          <button
+            type="button"
+            onClick={() =>
+              setSettings({
+                ...settings,
+                theme:
+                  settings.theme === Theme.Dark ? Theme.Light : Theme.Dark,
+              })
+            }
+            className="flex items-center gap-2 border border-border rounded-lg px-3 py-2 bg-surface text-main-text text-sm transition-colors hover:bg-cream-dark"
+          >
+            {settings.theme === Theme.Dark ? (
+              <HiMoon className="text-base" />
+            ) : (
+              <HiSun className="text-base" />
+            )}
+            {settings.theme === Theme.Dark ? "Dark" : "Light"}
+          </button>
         </div>
       </div>
       {loggedIn && (

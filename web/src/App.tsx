@@ -15,13 +15,18 @@ import { GenerateStoryView } from "./GenerateView";
 import { useLoggedIn } from "./firebase";
 import { SignInPage, SignUpPage } from "./LoginPage";
 
+function applyTheme(theme: Theme) {
+  document.documentElement.classList.toggle("dark", theme === Theme.Dark);
+}
+
 function loadSettingsOrDefault(): Settings {
   const settingsString = localStorage.getItem("settings");
   if (settingsString) {
-    // TODO: Validate settings
     const parsed = JSON.parse(settingsString);
+    applyTheme(parsed.theme ?? Theme.Light);
     return parsed;
   }
+  applyTheme(Theme.Light);
   return {
     lLocale: "en",
     rLocale: "de",
@@ -36,6 +41,7 @@ function setAndStoreSettings(
   setSettings: (value: Settings) => void,
 ) {
   localStorage.setItem("settings", JSON.stringify(value));
+  applyTheme(value.theme);
   setSettings(value);
 }
 

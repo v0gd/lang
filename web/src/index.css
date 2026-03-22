@@ -2,6 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-cream: #faf7f0;
+  --color-cream-dark: #f0ebe0;
+  --color-surface: #ffffff;
+  --color-primary: #2d6a5a;
+  --color-primary-hover: #245849;
+  --color-primary-light: #e8f3f0;
+  --color-main-text: #1a1a1a;
+  --color-secondary-text: #7a7368;
+  --color-muted-text: #a39e94;
+  --color-border: #e5e0d5;
+  --color-highlight: #d4a853;
+  --color-highlight-light: #faf0d8;
+}
+
+.dark {
+  --color-cream: #1c1c1e;
+  --color-cream-dark: #2a2a2c;
+  --color-surface: #242426;
+  --color-primary: #3d8b77;
+  --color-primary-hover: #2d7a67;
+  --color-primary-light: #1e3a32;
+  --color-main-text: #e8e4de;
+  --color-secondary-text: #9a958c;
+  --color-muted-text: #6a6560;
+  --color-border: #3a3a3c;
+  --color-highlight: #d4a853;
+  --color-highlight-light: #3a3020;
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -11,13 +41,13 @@ body {
   font-family: "Literata", serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #faf7f0;
-  color: #1a1a1a;
+  background-color: var(--color-cream);
+  color: var(--color-main-text);
 }
 
 ::selection {
-  background-color: #faf0d8;
-  color: #1a1a1a;
+  background-color: var(--color-highlight-light);
+  color: var(--color-main-text);
 }
 
 input[type="checkbox"] {
@@ -25,9 +55,9 @@ input[type="checkbox"] {
   -webkit-appearance: none;
   width: 1rem;
   height: 1rem;
-  border: 2px solid #e5e0d5;
+  border: 2px solid var(--color-border);
   border-radius: 4px;
-  background-color: #ffffff;
+  background-color: var(--color-surface);
   cursor: pointer;
   position: relative;
   transition: all 0.15s ease;
@@ -35,8 +65,8 @@ input[type="checkbox"] {
 }
 
 input[type="checkbox"]:checked {
-  background-color: #2d6a5a;
-  border-color: #2d6a5a;
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 input[type="checkbox"]:checked::after {
@@ -57,6 +87,6 @@ input[type="checkbox"]:disabled {
 }
 
 input[type="checkbox"]:focus-visible {
-  outline: 2px solid #2d6a5a;
+  outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
