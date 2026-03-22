@@ -447,7 +447,6 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	// check localization
 	if _, ok := st.Localizations[l]; !ok {
 		return newHTTPError(http.StatusNotFound, "Story not available in '%s'", l)
 	}
@@ -471,19 +470,39 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
-	eId := explanation.ExplanationId{
-		StoryId:      storyID,
-		L:            l,
-		R:            r,
-		LSentenceIdx: lIdx,
-		RSentenceIdx: rIdx,
+	wordIdxStr := req.URL.Query().Get("word_idx")
+	if wordIdxStr == "" {
+		eId := explanation.SentenceExplanationId{
+			StoryId:      storyID,
+			L:            l,
+			R:            r,
+			LSentenceIdx: lIdx,
+			RSentenceIdx: rIdx,
+		}
+		expl, eErr := explanation.GetSentence(eId, lSentence.ToPlainStr(), rSentence.ToPlainStr())
+		if eErr != nil {
+			return fmt.Errorf("explanation.GetSentence error: %w", eErr)
+		}
+		return writeJSON(w, map[string]any{"content": expl.Content})
+	} else {
+		wordIdx, convErr := strconv.Atoi(wordIdxStr)
+		if convErr != nil {
+			return newHTTPError(http.StatusBadRequest, "Invalid 'word_idx' parameter: '%s'", wordIdxStr)
+		}
+		wId := explanation.WordExplanationId{
+			StoryId:      storyID,
+			L:            l,
+			LSentenceIdx: lIdx,
+			R:            r,
+			RSentenceIdx: rIdx,
+			WordIdx:      wordIdx,
+		}
+		expl, eErr := explanation.GetWord(wId, lSentence.ToPlainStr(), rSentence.ToPlainStr())
+		if eErr != nil {
+			return fmt.Errorf("explanation.GetWord error: %w", eErr)
+		}
+		return writeJSON(w, map[string]any{"content": expl.Content})
 	}
-	expl, eErr := explanation.Get(eId, lSentence.ToPlainStr(), rSentence.ToPlainStr())
-	if eErr != nil {
-		return fmt.Errorf("explanation.Get error: %w", eErr)
-	}
-
-	return writeJSON(w, map[string]any{"content": expl.Content})
 }
 
 func getAudioHandler(w http.ResponseWriter, req *http.Request) error {

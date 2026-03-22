@@ -10,6 +10,8 @@ The main web application for language learners. Users can generate and read bili
 
 Deployed at [polypup.org](https://polypup.org).
 
+Some naming convention: the native language of the user is referred in code as 'l' (Left), while the language being learned is 'r' (Right). Why Left and Right? E.g. if I speak English and learn German, I would write the translation pair as English -> German (English on the left, German on the right).
+
 ### [parread/](parread/) — Parallel Reader
 
 An experimental web app for parallel reading — paste German text to get side-by-side English translations with click-to-explain word definitions. Python/FastAPI backend + React/TypeScript frontend.

@@ -197,3 +197,47 @@ export function useExplainQuery(
     retry: 2,
   });
 }
+
+export function useWordExplainQuery(
+  storyId: string,
+  l: string,
+  r: string,
+  lSentenceIdx: number,
+  rSentenceIdx: number,
+  wordIdx: number,
+) {
+  let url = new URL(`${API_URL}/explain`);
+  url.searchParams.append("story_id", storyId);
+  url.searchParams.append("l", l);
+  url.searchParams.append("r", r);
+  url.searchParams.append("l_sentence_idx", lSentenceIdx.toString());
+  url.searchParams.append("r_sentence_idx", rSentenceIdx.toString());
+  url.searchParams.append("word_idx", wordIdx.toString());
+
+  return useQuery<string>({
+    queryKey: [
+      "explain-word",
+      storyId,
+      l,
+      r,
+      lSentenceIdx,
+      rSentenceIdx,
+      wordIdx,
+    ],
+    queryFn: async () =>
+      fetchParamsWithOptionalAuth("GET").then((params) =>
+        fetch(url, params).then((res) => {
+          if (res.ok) {
+            return res.json().then((obj) => {
+              return obj.content;
+            });
+          } else {
+            console.error("Unexpected result for", url);
+            console.error(res);
+            throw new Error("Unexpected result for word explain query");
+          }
+        }),
+      ),
+    retry: 2,
+  });
+}

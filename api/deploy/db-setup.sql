@@ -36,4 +36,15 @@ CREATE TABLE explanation (
     PRIMARY KEY (story_id, l, r, l_sentence_idx, r_sentence_idx)
 );
 
+CREATE TABLE word_explanation (
+    story_id VARCHAR(256) NOT NULL,
+    l VARCHAR(10) NOT NULL,
+    r VARCHAR(10) NOT NULL,
+    l_sentence_idx INT NOT NULL,
+    r_sentence_idx INT NOT NULL,
+    word_idx INT NOT NULL,
+    content TEXT NOT NULL,
+    PRIMARY KEY (story_id, l, r, l_sentence_idx, r_sentence_idx, word_idx)
+);
+
 COMMIT;

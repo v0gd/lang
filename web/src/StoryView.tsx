@@ -1,8 +1,66 @@
-import { Fragment, useState } from "react";
+import { createContext, Fragment, useCallback, useContext, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Chapter, Paragraph, Sentence } from "./story";
 import { apiUrl, useStoryQuery, NotFoundError } from "./queries";
 import { lstr } from "./localization";
-import { ExplanationModal } from "./Explanation";
+import {
+  WordExplanationPopup,
+  PopupPosition,
+  computePopupPosition,
+} from "./Explanation";
+
+interface ActivePopup {
+  storyId: string;
+  l: string;
+  r: string;
+  lSentenceIdx: number;
+  rSentenceIdx: number;
+  wordIdx: number;
+  position: PopupPosition;
+}
+
+const PopupContext = createContext<{
+  activePopup: ActivePopup | null;
+  openPopup: (popup: ActivePopup) => void;
+  closePopup: () => void;
+}>({
+  activePopup: null,
+  openPopup: () => {},
+  closePopup: () => {},
+});
+
+function PopupProvider({ l, children }: { l: string; children: React.ReactNode }) {
+  const [activePopup, setActivePopup] = useState<ActivePopup | null>(null);
+  const closePopup = useCallback(() => setActivePopup(null), []);
+  const openPopup = useCallback((popup: ActivePopup) => setActivePopup(popup), []);
+
+  useEffect(() => {
+    if (!activePopup) return;
+    const handleClick = () => closePopup();
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, [activePopup, closePopup]);
+
+  return (
+    <PopupContext.Provider value={{ activePopup, openPopup, closePopup }}>
+      {children}
+      {activePopup &&
+        createPortal(
+          <WordExplanationPopup
+            storyId={activePopup.storyId}
+            l={activePopup.l}
+            r={activePopup.r}
+            lSentenceIdx={activePopup.lSentenceIdx}
+            rSentenceIdx={activePopup.rSentenceIdx}
+            wordIdx={activePopup.wordIdx}
+            position={activePopup.position}
+            onClose={closePopup}
+          />,
+          document.body,
+        )}
+    </PopupContext.Provider>
+  );
+}
 
 function Image({ storyId, imageId }: { storyId: string; imageId?: string }) {
   if (!imageId) {
@@ -29,8 +87,8 @@ function SentenceView({
   r,
   lSentence,
   rSentence,
-  style,
-  onHover,
+  textStyle,
+  interactive,
 }: {
   text: string;
   storyId: string;
@@ -38,36 +96,74 @@ function SentenceView({
   r: string;
   lSentence: Sentence;
   rSentence: Sentence;
-  style: string;
-  onHover: (hover: boolean) => void;
+  textStyle: string;
+  interactive: boolean;
 }) {
-  const [showExplanation, setShowExplanation] = useState(false);
+  const { activePopup, openPopup } = useContext(PopupContext);
 
-  const onClick = () => {
-    setShowExplanation(true);
-  };
+  const onWordClick = useCallback(
+    (e: React.MouseEvent, wordIdx: number) => {
+      e.stopPropagation();
+      const pos = computePopupPosition(e.target as HTMLElement);
+      openPopup({
+        storyId,
+        l,
+        r,
+        lSentenceIdx: lSentence.index,
+        rSentenceIdx: rSentence.index,
+        wordIdx,
+        position: pos,
+      });
+    },
+    [storyId, l, r, lSentence.index, rSentence.index, openPopup],
+  );
+
+  if (!interactive) {
+    return (
+      <span className={`select-none ${textStyle}`}>{text}</span>
+    );
+  }
+
+  const isActiveInThisSentence =
+    activePopup?.lSentenceIdx === lSentence.index &&
+    activePopup?.rSentenceIdx === rSentence.index;
+
+  const tokens = text.split(/(\s+)/);
+  let wordIdx = 0;
 
   return (
-    <>
-      <span
-        className={`select-none hover:bg-emerald-300 rounded px-[2px] py-[1px] transition-colors ${style}`}
-        onClick={() => onClick()}
-        onMouseEnter={() => onHover(true)}
-        onMouseLeave={() => onHover(false)}
-      >
-        {text}
-      </span>
-      {showExplanation && (
-        <ExplanationModal
-          storyId={storyId}
-          l={l}
-          r={r}
-          lSentence={lSentence}
-          rSentence={rSentence}
-          closeModal={() => setShowExplanation(false)}
-        />
-      )}
-    </>
+    <span className={`select-none ${textStyle}`}>
+      {tokens.map((token, idx) => {
+        if (/^\s+$/.test(token) || token === "") {
+          return (
+            <Fragment key={idx}>{token}</Fragment>
+          );
+        }
+
+        const currentWordIdx = wordIdx++;
+        const leading = token.match(/^\p{P}+/u)?.[0] ?? "";
+        const trailing = token.match(/\p{P}+$/u)?.[0] ?? "";
+        const word = token.slice(
+          leading.length,
+          token.length - trailing.length || undefined,
+        );
+        const isActive =
+          isActiveInThisSentence && activePopup?.wordIdx === currentWordIdx;
+
+        return (
+          <Fragment key={idx}>
+            {leading}
+            <span
+              className={`cursor-pointer hover:bg-emerald-300 rounded px-[1px] transition-colors ${isActive ? "bg-emerald-300" : ""}`}
+              onClick={(e) => onWordClick(e, currentWordIdx)}
+            >
+              {word}
+            </span>
+            {trailing}
+          </Fragment>
+        );
+      })}
+    </span>
   );
 }
 
@@ -88,22 +184,12 @@ function ParagraphView({
   shouldShowTranslation: boolean;
   showTranslationBySentence: boolean;
 }) {
-  const [hoveredSentence, setHoveredSentence] = useState<number | null>(null);
-
   if (lParagraph.sentences.length !== rParagraph.sentences.length) {
     console.error("Paragraph sentences are not aligned");
     return (
       <div className="text-red-800">Paragraph sentences are not aligned</div>
     );
   }
-
-  const onHover = (sentenceIdx: number, hover: boolean) => {
-    if (hover) {
-      setHoveredSentence(sentenceIdx);
-    } else {
-      setHoveredSentence(null);
-    }
-  };
 
   return (
     <div>
@@ -119,12 +205,8 @@ function ParagraphView({
                 r={r}
                 lSentence={lParagraph.sentences[index]}
                 rSentence={sentence}
-                style={
-                  hoveredSentence === index
-                    ? "text-base text-main-text bg-emerald-300"
-                    : "text-base text-main-text"
-                }
-                onHover={(hover) => onHover(index, hover)}
+                textStyle="text-base text-main-text"
+                interactive={true}
               />
             </span>
           ))}
@@ -141,12 +223,8 @@ function ParagraphView({
                 r={r}
                 lSentence={sentence}
                 rSentence={rParagraph.sentences[index]}
-                style={
-                  hoveredSentence === index
-                    ? "text-base text-secondary-text font-thin bg-emerald-300"
-                    : "text-base text-secondary-text font-thin"
-                }
-                onHover={(hover) => onHover(index, hover)}
+                textStyle="text-base text-secondary-text font-thin"
+                interactive={false}
               />
             </span>
           ))}
@@ -159,7 +237,7 @@ function ParagraphView({
               <div
                 className={index !== 0 ? "text-justify mt-3" : "text-justify"}
               >
-                <span key={index}>
+                <span>
                   <SentenceView
                     text={sentence.text}
                     storyId={storyId}
@@ -167,18 +245,14 @@ function ParagraphView({
                     r={r}
                     lSentence={lParagraph.sentences[index]}
                     rSentence={sentence}
-                    style={
-                      hoveredSentence === index
-                        ? "text-base text-main-text bg-emerald-300"
-                        : "text-base text-main-text"
-                    }
-                    onHover={(hover) => onHover(index, hover)}
+                    textStyle="text-base text-main-text"
+                    interactive={true}
                   />
                 </span>
               </div>
               {index < lParagraph.sentences.length && (
                 <div className="text-justify">
-                  <span key={index}>
+                  <span>
                     <SentenceView
                       text={lParagraph.sentences[index].text}
                       storyId={storyId}
@@ -186,12 +260,8 @@ function ParagraphView({
                       r={r}
                       lSentence={lParagraph.sentences[index]}
                       rSentence={rParagraph.sentences[index]}
-                      style={
-                        hoveredSentence === index
-                          ? "text-base text-secondary-text font-thin bg-emerald-300"
-                          : "text-base text-secondary-text font-thin"
-                      }
-                      onHover={(hover) => onHover(index, hover)}
+                      textStyle="text-base text-secondary-text font-thin"
+                      interactive={false}
                     />
                   </span>
                 </div>
@@ -233,7 +303,9 @@ function ChapterView({
   return (
     <div>
       {rChapter.title && (
-        <h2 className="text-xl font-bold text-center mt-4">{rChapter.title}</h2>
+        <h2 className="text-xl font-bold text-center mt-4">
+          {rChapter.title}
+        </h2>
       )}
       <div className={`flex flex-col gap-${paragraphGap} mt-4`}>
         {rChapter.paragraphs.map((paragraph, index) => (
@@ -285,8 +357,6 @@ function StoryView({
   }
 
   if (storyId.startsWith("g_")) {
-    // If the story is generated, override 'l' and 'r' with whatever we have
-    // in the story localizations.
     let locales = Array.from(query.data.localizations.keys());
     if (locales.includes(l)) {
       r = locales[0] == l ? locales[1] : locales[0];
@@ -303,35 +373,39 @@ function StoryView({
 
   if (lStory.chapters.length !== rStory.chapters.length) {
     console.error("Story paragraphs are not aligned");
-    return <div className="text-red-800">Story paragraphs are not aligned</div>;
+    return (
+      <div className="text-red-800">Story paragraphs are not aligned</div>
+    );
   }
 
   return (
-    <div>
-      <Image storyId={storyId} imageId={rStory.imageId} />
-      <h1 className="text-2xl font-bold text-center">{rStory.title}</h1>
-      {shouldShowTranslation && (
-        <h1 className="text-2xl font-medium text-secondary-text text-center">
-          {lStory.title}
-        </h1>
-      )}
-      <div className="mt-4">
-        <div className="flex flex-col gap-8 pb-10">
-          {rStory.chapters.map((chapter, index) => (
-            <ChapterView
-              key={index}
-              storyId={storyId}
-              l={l}
-              r={r}
-              lChapter={lStory.chapters[index]}
-              rChapter={chapter}
-              shouldShowTranslation={shouldShowTranslation}
-              showTranslationBySentence={showTranslationBySentence}
-            />
-          ))}
+    <PopupProvider l={l}>
+      <div>
+        <Image storyId={storyId} imageId={rStory.imageId} />
+        <h1 className="text-2xl font-bold text-center">{rStory.title}</h1>
+        {shouldShowTranslation && (
+          <h1 className="text-2xl font-medium text-secondary-text text-center">
+            {lStory.title}
+          </h1>
+        )}
+        <div className="mt-4">
+          <div className="flex flex-col gap-8 pb-10">
+            {rStory.chapters.map((chapter, index) => (
+              <ChapterView
+                key={index}
+                storyId={storyId}
+                l={l}
+                r={r}
+                lChapter={lStory.chapters[index]}
+                rChapter={chapter}
+                shouldShowTranslation={shouldShowTranslation}
+                showTranslationBySentence={showTranslationBySentence}
+              />
+            ))}
+          </div>
         </div>
       </div>
-    </div>
+    </PopupProvider>
   );
 }
 

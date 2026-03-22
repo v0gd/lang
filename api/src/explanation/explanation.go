@@ -10,9 +10,10 @@ import (
 	"lang/api/telemetry"
 	"log/slog"
 	"strings"
+	"unicode"
 )
 
-type Explanation struct {
+type SentenceExplanation struct {
 	LSentenceIdx int    `json:"l_sentence_idx"`
 	RSentenceIdx int    `json:"r_sentence_idx"`
 	Content      string `json:"text"`
@@ -38,7 +39,7 @@ var (
 	}
 )
 
-func llmRole(l, r, level string) string {
+func sentenceLlmRole(l, r, level string) string {
 	return fmt.Sprintf(
 		`You are professional teacher that specializes in teaching %s to %s speakers. You are explaining a given sentence translation to a student who is at %s level of proficiency in %s.
     
@@ -118,7 +119,7 @@ Expected output:
 	)
 }
 
-func llmQueryContent(l, lSentence, r, rSentence string) string {
+func sentenceLlmQueryContent(l, lSentence, r, rSentence string) string {
 	if l == "en" {
 		return fmt.Sprintf(`Explain part by part the following translation from %s to English:
 
@@ -155,7 +156,7 @@ auf %s:
 	panic(fmt.Sprintf("Unknown language %s", l))
 }
 
-type ExplanationId struct {
+type SentenceExplanationId struct {
 	StoryId      story.Id
 	L            story.Locale
 	LSentenceIdx int
@@ -163,121 +164,264 @@ type ExplanationId struct {
 	RSentenceIdx int
 }
 
-func (eId ExplanationId) String() string {
+func (eId SentenceExplanationId) String() string {
 	return fmt.Sprintf("%s_%s_%d_%s_%d", eId.StoryId, eId.L, eId.LSentenceIdx, eId.R, eId.RSentenceIdx)
 }
 
 var (
-	storeStmt *sql.Stmt
-	loadStmt  *sql.Stmt
+	sentenceStoreStmt *sql.Stmt
+	sentenceLoadStmt  *sql.Stmt
+	wordStoreStmt     *sql.Stmt
+	wordLoadStmt      *sql.Stmt
 )
 
 func Setup() {
-	// cached = loadAll()
-	var err error = nil
-	storeStmt, err = db.Db.Prepare(
+	var err error
+	sentenceStoreStmt, err = db.Db.Prepare(
 		"INSERT INTO explanation (story_id, l, r, l_sentence_idx, r_sentence_idx, content) " +
 			"VALUES (?, ?, ?, ?, ?, ?) " +
 			"ON DUPLICATE KEY UPDATE content = content;")
 	if err != nil {
 		panic(err)
 	}
-	loadStmt, err = db.Db.Prepare(
+	sentenceLoadStmt, err = db.Db.Prepare(
 		"SELECT content FROM explanation " +
 			"WHERE story_id = ? AND l = ? AND l_sentence_idx = ? AND r = ? AND r_sentence_idx = ?")
 	if err != nil {
 		panic(err)
 	}
+	wordStoreStmt, err = db.Db.Prepare(
+		"INSERT INTO word_explanation (story_id, l, r, l_sentence_idx, r_sentence_idx, word_idx, content) " +
+			"VALUES (?, ?, ?, ?, ?, ?, ?) " +
+			"ON DUPLICATE KEY UPDATE content = content;")
+	if err != nil {
+		panic(err)
+	}
+	wordLoadStmt, err = db.Db.Prepare(
+		"SELECT content FROM word_explanation " +
+			"WHERE story_id = ? AND l = ? AND l_sentence_idx = ? AND r = ? AND r_sentence_idx = ? AND word_idx = ?")
+	if err != nil {
+		panic(err)
+	}
 }
 
-func store(eId ExplanationId, e Explanation) error {
-	_, err := storeStmt.Exec(eId.StoryId, eId.L, eId.R, eId.LSentenceIdx, eId.RSentenceIdx, e.Content)
+func storeSentence(eId SentenceExplanationId, e SentenceExplanation) error {
+	_, err := sentenceStoreStmt.Exec(eId.StoryId, eId.L, eId.R, eId.LSentenceIdx, eId.RSentenceIdx, e.Content)
 	if err != nil {
-		return fmt.Errorf("failed to store explanation in db: %w", err)
+		return fmt.Errorf("failed to store sentence explanation in db: %w", err)
 	}
 	return nil
 }
 
-func load(eId ExplanationId) (Explanation, error) {
+func loadSentence(eId SentenceExplanationId) (SentenceExplanation, error) {
 	var content string
-	err := loadStmt.QueryRow(eId.StoryId, eId.L, eId.LSentenceIdx, eId.R, eId.RSentenceIdx).Scan(&content)
+	err := sentenceLoadStmt.QueryRow(eId.StoryId, eId.L, eId.LSentenceIdx, eId.R, eId.RSentenceIdx).Scan(&content)
 	if err != nil {
-		return Explanation{}, fmt.Errorf("failed to load explanation from db: %w", err)
+		return SentenceExplanation{}, fmt.Errorf("failed to load sentence explanation from db: %w", err)
 	}
-	return Explanation{
+	return SentenceExplanation{
 		LSentenceIdx: eId.LSentenceIdx,
 		RSentenceIdx: eId.RSentenceIdx,
 		Content:      content,
 	}, nil
 }
 
-func generate(
-	eId ExplanationId, lSentence, rSentence string,
-) (Explanation, error) {
+func generateSentence(
+	eId SentenceExplanationId, lSentence, rSentence string,
+) (SentenceExplanation, error) {
 	response, err := llm.Invoke(
-		llmRole(eId.L, eId.R, "C1"), llmQueryContent(eId.L, lSentence, eId.R, rSentence), llm.Gpt4o)
+		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, lSentence, eId.R, rSentence), llm.Gpt4o)
 	if err != nil {
-		return Explanation{}, err
+		return SentenceExplanation{}, err
 	}
 	response = strings.ReplaceAll(response, "<p>", `<p class="mt-2">`)
-	return Explanation{
+	return SentenceExplanation{
 		LSentenceIdx: eId.LSentenceIdx,
 		RSentenceIdx: eId.RSentenceIdx,
 		Content:      response,
 	}, nil
 }
 
-func Get(eId ExplanationId, lSentence string, rSentence string) (Explanation, error) {
-	trace := telemetry.NewTrace(fmt.Sprintf("Getting explanation %s", eId.String()))
+func GetSentence(eId SentenceExplanationId, lSentence string, rSentence string) (SentenceExplanation, error) {
+	trace := telemetry.NewTrace(fmt.Sprintf("Getting sentence explanation %s", eId.String()))
 	defer trace.Stop()
 
-	e, err := load(eId)
+	e, err := loadSentence(eId)
 	if err == nil {
 		return e, nil
 	}
 
 	if !errors.Is(err, sql.ErrNoRows) {
-		return Explanation{}, fmt.Errorf("failed to load explanation from db: %w", err)
+		return SentenceExplanation{}, fmt.Errorf("failed to load sentence explanation from db: %w", err)
 	}
 
-	e, err = generate(eId, lSentence, rSentence)
+	e, err = generateSentence(eId, lSentence, rSentence)
 	if err != nil {
-		return Explanation{}, fmt.Errorf("failed to generate explanation: %w", err)
+		return SentenceExplanation{}, fmt.Errorf("failed to generate sentence explanation: %w", err)
 	}
 
-	err = store(eId, e)
+	err = storeSentence(eId, e)
 	if err != nil {
-		slog.Error(fmt.Sprintf("Failed to store explanation in db: %v", err))
+		slog.Error(fmt.Sprintf("Failed to store sentence explanation in db: %v", err))
 		return e, nil
 	}
 
 	// There might be a race condition when 2 requests try to store the same explanation
 	// at the same time. If the explanation was already stored by another request, load it.
-	e, err = load(eId)
+	e, err = loadSentence(eId)
 	if err != nil {
-		return Explanation{}, fmt.Errorf("failed to load explanation from db: %w", err)
+		return SentenceExplanation{}, fmt.Errorf("failed to load sentence explanation from db: %w", err)
+	}
+
+	return e, nil
+}
+
+// --- Word Explanation ---
+
+type WordExplanation struct {
+	Content string `json:"content"`
+}
+
+type WordExplanationId struct {
+	StoryId      story.Id
+	L            story.Locale
+	LSentenceIdx int
+	R            story.Locale
+	RSentenceIdx int
+	WordIdx      int
+}
+
+func (wId WordExplanationId) String() string {
+	return fmt.Sprintf("%s_%s_%d_%s_%d_w%d", wId.StoryId, wId.L, wId.LSentenceIdx, wId.R, wId.RSentenceIdx, wId.WordIdx)
+}
+
+// ExtractWord splits sentenceText by whitespace, skips empty tokens,
+// and returns the non-empty token at wordIdx with leading/trailing
+// punctuation stripped. This logic must match the frontend tokenization exactly.
+func ExtractWord(sentenceText string, wordIdx int) (string, error) {
+	tokens := strings.Fields(sentenceText)
+	if wordIdx < 0 || wordIdx >= len(tokens) {
+		return "", fmt.Errorf("word_idx %d out of range (sentence has %d words)", wordIdx, len(tokens))
+	}
+	token := tokens[wordIdx]
+	word := strings.TrimFunc(token, unicode.IsPunct)
+	if word == "" {
+		return token, nil
+	}
+	return word, nil
+}
+
+func wordLlmRole(l, r string) string {
+	return fmt.Sprintf(
+		`You are a concise %s language teacher for %s speakers. You explain individual words in context. Always respond in %s. Give a brief explanation: translation, part of speech, and any relevant grammar notes (gender, case, conjugation). Keep it to 1-3 short sentences. Do NOT use HTML formatting, respond in plain text only.`,
+		LANGUAGES_EN[r],
+		LANGUAGES_EN[l],
+		LANGUAGES_EN[l],
+	)
+}
+
+func wordLlmQueryContent(l, r, word, rSentence, lSentence string) string {
+	if l == "en" {
+		return fmt.Sprintf(`Explain the word "%s" in the following %s sentence:
+"%s"
+Translation: "%s"`, word, LANGUAGES_EN[r], rSentence, lSentence)
+	}
+
+	if l == "ru" {
+		return fmt.Sprintf(`Объясни слово "%s" в следующем предложении на %s языке:
+"%s"
+Перевод: "%s"`, word, LANGUAGES_RU[r], rSentence, lSentence)
+	}
+
+	if l == "de" {
+		return fmt.Sprintf(`Erkläre das Wort "%s" im folgenden %s Satz:
+"%s"
+Übersetzung: "%s"`, word, LANGUAGES_DE[r], rSentence, lSentence)
+	}
+
+	panic(fmt.Sprintf("Unknown language %s", l))
+}
+
+func storeWord(wId WordExplanationId, e WordExplanation) error {
+	_, err := wordStoreStmt.Exec(wId.StoryId, wId.L, wId.R, wId.LSentenceIdx, wId.RSentenceIdx, wId.WordIdx, e.Content)
+	if err != nil {
+		return fmt.Errorf("failed to store word explanation in db: %w", err)
+	}
+	return nil
+}
+
+func loadWord(wId WordExplanationId) (WordExplanation, error) {
+	var content string
+	err := wordLoadStmt.QueryRow(wId.StoryId, wId.L, wId.LSentenceIdx, wId.R, wId.RSentenceIdx, wId.WordIdx).Scan(&content)
+	if err != nil {
+		return WordExplanation{}, fmt.Errorf("failed to load word explanation from db: %w", err)
+	}
+	return WordExplanation{Content: content}, nil
+}
+
+func generateWord(wId WordExplanationId, word, lSentence, rSentence string) (WordExplanation, error) {
+	response, err := llm.Invoke(
+		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, lSentence), llm.Gpt4oMini)
+	if err != nil {
+		return WordExplanation{}, err
+	}
+	return WordExplanation{Content: strings.TrimSpace(response)}, nil
+}
+
+func GetWord(wId WordExplanationId, lSentence string, rSentence string) (WordExplanation, error) {
+	trace := telemetry.NewTrace(fmt.Sprintf("Getting word explanation %s", wId.String()))
+	defer trace.Stop()
+
+	e, err := loadWord(wId)
+	if err == nil {
+		return e, nil
+	}
+
+	if !errors.Is(err, sql.ErrNoRows) {
+		return WordExplanation{}, fmt.Errorf("failed to load word explanation from db: %w", err)
+	}
+
+	word, err := ExtractWord(rSentence, wId.WordIdx)
+	if err != nil {
+		return WordExplanation{}, fmt.Errorf("failed to extract word: %w", err)
+	}
+
+	e, err = generateWord(wId, word, lSentence, rSentence)
+	if err != nil {
+		return WordExplanation{}, fmt.Errorf("failed to generate word explanation: %w", err)
+	}
+
+	err = storeWord(wId, e)
+	if err != nil {
+		slog.Error(fmt.Sprintf("Failed to store word explanation in db: %v", err))
+		return e, nil
+	}
+
+	e, err = loadWord(wId)
+	if err != nil {
+		return WordExplanation{}, fmt.Errorf("failed to load word explanation from db: %w", err)
 	}
 
 	return e, nil
 }
 
 func Test() {
-	println("Testing Explanation")
-	eId := ExplanationId{
+	println("Testing SentenceExplanation")
+	eId := SentenceExplanationId{
 		StoryId:      "test-story",
 		L:            "en",
 		LSentenceIdx: 1,
 		R:            "ru",
 		RSentenceIdx: 2,
 	}
-	_, err := Get(eId, "This is an English sentence.", "Это английское предложение.")
+	_, err := GetSentence(eId, "This is an English sentence.", "Это английское предложение.")
 	if err != nil {
 		panic(err)
 	}
-	expl, err := Get(eId, "This is an English sentence.", "Это английское предложение.")
+	expl, err := GetSentence(eId, "This is an English sentence.", "Это английское предложение.")
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Explanation:", expl)
-	println("Explanation test passed")
+	fmt.Println("SentenceExplanation:", expl)
+	println("SentenceExplanation test passed")
 }
