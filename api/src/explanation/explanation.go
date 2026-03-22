@@ -230,7 +230,7 @@ func generateSentence(
 	eId SentenceExplanationId, lSentence, rSentence string,
 ) (SentenceExplanation, error) {
 	response, err := llm.Invoke(
-		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, lSentence, eId.R, rSentence), llm.Gpt4o)
+		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, lSentence, eId.R, rSentence), llm.Gpt5_4)
 	if err != nil {
 		return SentenceExplanation{}, err
 	}
@@ -361,7 +361,7 @@ func loadWord(wId WordExplanationId) (WordExplanation, error) {
 
 func generateWord(wId WordExplanationId, word, lSentence, rSentence string) (WordExplanation, error) {
 	response, err := llm.Invoke(
-		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, lSentence), llm.Gpt4oMini)
+		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, lSentence), llm.Gpt5_4Mini)
 	if err != nil {
 		return WordExplanation{}, err
 	}
