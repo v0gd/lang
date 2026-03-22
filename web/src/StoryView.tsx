@@ -1,13 +1,8 @@
 import { createContext, Fragment, useCallback, useContext, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { Chapter, Paragraph, Sentence } from "./story";
 import { apiUrl, useStoryQuery, NotFoundError } from "./queries";
 import { lstr } from "./localization";
-import {
-  WordExplanationPopup,
-  PopupPosition,
-  computePopupPosition,
-} from "./Explanation";
+import { WordExplanationPopup } from "./Explanation";
 
 interface ActivePopup {
   storyId: string;
@@ -16,7 +11,6 @@ interface ActivePopup {
   lSentenceIdx: number;
   rSentenceIdx: number;
   wordIdx: number;
-  position: PopupPosition;
 }
 
 const PopupContext = createContext<{
@@ -29,7 +23,7 @@ const PopupContext = createContext<{
   closePopup: () => {},
 });
 
-function PopupProvider({ l, children }: { l: string; children: React.ReactNode }) {
+function PopupProvider({ children }: { children: React.ReactNode }) {
   const [activePopup, setActivePopup] = useState<ActivePopup | null>(null);
   const closePopup = useCallback(() => setActivePopup(null), []);
   const openPopup = useCallback((popup: ActivePopup) => setActivePopup(popup), []);
@@ -44,20 +38,6 @@ function PopupProvider({ l, children }: { l: string; children: React.ReactNode }
   return (
     <PopupContext.Provider value={{ activePopup, openPopup, closePopup }}>
       {children}
-      {activePopup &&
-        createPortal(
-          <WordExplanationPopup
-            storyId={activePopup.storyId}
-            l={activePopup.l}
-            r={activePopup.r}
-            lSentenceIdx={activePopup.lSentenceIdx}
-            rSentenceIdx={activePopup.rSentenceIdx}
-            wordIdx={activePopup.wordIdx}
-            position={activePopup.position}
-            onClose={closePopup}
-          />,
-          document.body,
-        )}
     </PopupContext.Provider>
   );
 }
@@ -104,7 +84,6 @@ function SentenceView({
   const onWordClick = useCallback(
     (e: React.MouseEvent, wordIdx: number) => {
       e.stopPropagation();
-      const pos = computePopupPosition(e.target as HTMLElement);
       openPopup({
         storyId,
         l,
@@ -112,7 +91,6 @@ function SentenceView({
         lSentenceIdx: lSentence.index,
         rSentenceIdx: rSentence.index,
         wordIdx,
-        position: pos,
       });
     },
     [storyId, l, r, lSentence.index, rSentence.index, openPopup],
@@ -154,10 +132,20 @@ function SentenceView({
           <Fragment key={idx}>
             {leading}
             <span
-              className={`cursor-pointer hover:bg-emerald-300 rounded px-[1px] transition-colors ${isActive ? "bg-emerald-300" : ""}`}
+              className={`cursor-pointer hover:bg-emerald-300 rounded px-[1px] transition-colors ${isActive ? "bg-emerald-300 relative" : ""}`}
               onClick={(e) => onWordClick(e, currentWordIdx)}
             >
               {word}
+              {isActive && (
+                <WordExplanationPopup
+                  storyId={storyId}
+                  l={l}
+                  r={r}
+                  lSentenceIdx={lSentence.index}
+                  rSentenceIdx={rSentence.index}
+                  wordIdx={currentWordIdx}
+                />
+              )}
             </span>
             {trailing}
           </Fragment>
@@ -197,36 +185,42 @@ function ParagraphView({
       {(!shouldShowTranslation || !showTranslationBySentence) && (
         <div className="text-justify">
           {rParagraph.sentences.map((sentence, index) => (
-            <span key={index} className={index === 0 ? "ml-4" : ""}>
-              <SentenceView
-                text={sentence.text}
-                storyId={storyId}
-                l={l}
-                r={r}
-                lSentence={lParagraph.sentences[index]}
-                rSentence={sentence}
-                textStyle="text-base text-main-text"
-                interactive={true}
-              />
-            </span>
+            <Fragment key={index}>
+              <span className={index === 0 ? "ml-4" : ""}>
+                <SentenceView
+                  text={sentence.text}
+                  storyId={storyId}
+                  l={l}
+                  r={r}
+                  lSentence={lParagraph.sentences[index]}
+                  rSentence={sentence}
+                  textStyle="text-base text-main-text"
+                  interactive={true}
+                />
+              </span>
+              {index < rParagraph.sentences.length - 1 && " "}
+            </Fragment>
           ))}
         </div>
       )}
       {shouldShowTranslation && !showTranslationBySentence && (
         <div className="mt-3 text-justify">
           {lParagraph.sentences.map((sentence, index) => (
-            <span key={index} className={index === 0 ? "ml-4" : ""}>
-              <SentenceView
-                text={sentence.text}
-                storyId={storyId}
-                l={l}
-                r={r}
-                lSentence={sentence}
-                rSentence={rParagraph.sentences[index]}
-                textStyle="text-base text-secondary-text font-thin"
-                interactive={false}
-              />
-            </span>
+            <Fragment key={index}>
+              <span className={index === 0 ? "ml-4" : ""}>
+                <SentenceView
+                  text={sentence.text}
+                  storyId={storyId}
+                  l={l}
+                  r={r}
+                  lSentence={sentence}
+                  rSentence={rParagraph.sentences[index]}
+                  textStyle="text-base text-secondary-text font-thin"
+                  interactive={false}
+                />
+              </span>
+              {index < lParagraph.sentences.length - 1 && " "}
+            </Fragment>
           ))}
         </div>
       )}
@@ -379,7 +373,7 @@ function StoryView({
   }
 
   return (
-    <PopupProvider l={l}>
+    <PopupProvider>
       <div>
         <Image storyId={storyId} imageId={rStory.imageId} />
         <h1 className="text-2xl font-bold text-center">{rStory.title}</h1>

@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Sentence } from "./story";
 import { useExplainQuery, useWordExplainQuery } from "./queries";
 import { API_URL } from "./config";
@@ -68,32 +69,6 @@ export function ExplanationModal({
   );
 }
 
-export interface PopupPosition {
-  x: number;
-  y: number;
-  above: boolean;
-  alignRight: boolean;
-}
-
-export function computePopupPosition(
-  target: HTMLElement,
-): PopupPosition {
-  const rect = target.getBoundingClientRect();
-  const popupHeight = 150;
-  const popupWidth = 384;
-  const spaceBelow = window.innerHeight - rect.bottom;
-  const spaceRight = window.innerWidth - rect.left;
-  const above = spaceBelow < popupHeight && rect.top > popupHeight;
-  const alignRight = spaceRight < popupWidth;
-
-  return {
-    x: (alignRight ? rect.right : rect.left) + window.scrollX,
-    y: (above ? rect.top - 5 : rect.bottom + 5) + window.scrollY,
-    above,
-    alignRight,
-  };
-}
-
 export function WordExplanationPopup({
   storyId,
   l,
@@ -101,7 +76,6 @@ export function WordExplanationPopup({
   lSentenceIdx,
   rSentenceIdx,
   wordIdx,
-  position,
 }: {
   storyId: string;
   l: string;
@@ -109,9 +83,11 @@ export function WordExplanationPopup({
   lSentenceIdx: number;
   rSentenceIdx: number;
   wordIdx: number;
-  position: PopupPosition;
-  onClose: () => void;
 }) {
+  const popupRef = useRef<HTMLDivElement>(null);
+  const [above, setAbove] = useState(false);
+  const [shiftX, setShiftX] = useState(0);
+
   const query = useWordExplainQuery(
     storyId,
     l,
@@ -121,15 +97,49 @@ export function WordExplanationPopup({
     wordIdx,
   );
 
+  const reposition = useCallback(() => {
+    const popup = popupRef.current;
+    if (!popup || !popup.offsetParent) return;
+
+    const parentRect = (popup.offsetParent as HTMLElement).getBoundingClientRect();
+    const popupWidth = popup.offsetWidth;
+    const popupHeight = popup.offsetHeight;
+
+    const gap = 5;
+    const spaceBelow = window.innerHeight - parentRect.bottom;
+    setAbove(spaceBelow < popupHeight + gap && parentRect.top > popupHeight + gap);
+
+    const margin = 8;
+    const naturalLeft = parentRect.left;
+    let shift = 0;
+    if (naturalLeft + popupWidth > window.innerWidth - margin) {
+      shift = window.innerWidth - margin - naturalLeft - popupWidth;
+    }
+    if (naturalLeft + shift < margin) {
+      shift = margin - naturalLeft;
+    }
+    setShiftX(shift);
+  }, []);
+
+  useLayoutEffect(() => {
+    reposition();
+  });
+
+  useEffect(() => {
+    window.addEventListener("resize", reposition);
+    return () => window.removeEventListener("resize", reposition);
+  }, [reposition]);
+
   return (
     <div
-      className="absolute bg-emerald-50 rounded-xl shadow-2xl ring-1 ring-black/10 border border-emerald-200 px-5 py-4 max-w-sm z-50"
+      ref={popupRef}
+      className="absolute left-0 z-50 bg-emerald-50 rounded-xl shadow-2xl ring-1 ring-black/10 border border-emerald-200 px-5 py-4"
       style={{
-        ...(position.alignRight
-          ? { right: document.documentElement.scrollWidth - position.x }
-          : { left: position.x }),
-        top: position.y,
-        ...(position.above && { transform: "translateY(-100%)" }),
+        ...(above
+          ? { bottom: "100%", marginBottom: 5 }
+          : { top: "100%", marginTop: 5 }),
+        transform: shiftX ? `translateX(${shiftX}px)` : undefined,
+        width: "min(24rem, calc(100vw - 1rem))",
       }}
       onClick={(e) => e.stopPropagation()}
     >
