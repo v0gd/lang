@@ -25,12 +25,12 @@ import (
 )
 
 var (
-	STORIES           []story.StoryMultilingual
-	STORY_ID_TO_DIR   map[string]string
-	SUPPORTED_LOCALES = []string{"en", "ru", "de"}
-	STORY_LIST        = []string{"beneath-peeling-paint/C1"}
-	ALLOWED_ORIGINS   = getAllowedOrigins()
-	STORIES_DIR       = osutil.MustGetEnv("LANG_API_STORIES_DIR")
+	CURATED_STORIES           []story.StoryMultilingual
+	CURATED_STORY_ID_TO_DIR   map[string]string
+	SUPPORTED_LOCALES         = []string{"en", "ru", "de"}
+	CURATED_STORY_LIST        = []string{"beneath-peeling-paint/C1"}
+	ALLOWED_ORIGINS           = getAllowedOrigins()
+	CURATED_STORIES_DIR       = osutil.MustGetEnv("LANG_API_CURATED_STORIES_DIR")
 	DEBUG_MODE        = osutil.MustGetEnv("LANG_API_DEBUG_MODE") == "1"
 	IS_DEV            = osutil.MustGetEnv("LANG_API_IS_DEV") == "1"
 )
@@ -133,12 +133,12 @@ func getAllowedOrigins() []string {
 	return strings.Split(origin, ",")
 }
 
-func loadStories() ([]story.StoryMultilingual, map[string]string) {
+func loadCuratedStories() ([]story.StoryMultilingual, map[string]string) {
 	var stories []story.StoryMultilingual
 	mapping := make(map[string]string)
 
-	for _, dir := range STORY_LIST {
-		filePath := filepath.Join(STORIES_DIR, dir, "story.txt")
+	for _, dir := range CURATED_STORY_LIST {
+		filePath := filepath.Join(CURATED_STORIES_DIR, dir, "story.txt")
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			panic(fmt.Sprintf("Failed reading story file %s: %v", filePath, err))
@@ -223,7 +223,7 @@ func findStory(storyID string) (story.StoryMultilingual, error) {
 		}
 		return st, nil
 	} else {
-		for _, s := range STORIES {
+		for _, s := range CURATED_STORIES {
 			if s.Id == storyID {
 				return s, nil
 			}
@@ -233,7 +233,7 @@ func findStory(storyID string) (story.StoryMultilingual, error) {
 }
 
 func findStoryRelativeDir(storyID string) (string, error) {
-	dir, ok := STORY_ID_TO_DIR[storyID]
+	dir, ok := CURATED_STORY_ID_TO_DIR[storyID]
 	if !ok {
 		return "", newHTTPError(http.StatusNotFound, "Story not found")
 	}
@@ -332,7 +332,7 @@ func getStoryListHandler(w http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 	var results []story.StoryDescriptor
-	for _, st := range STORIES {
+	for _, st := range CURATED_STORIES {
 		sl, ok := st.Localizations[l]
 		if !ok {
 			continue
@@ -354,7 +354,7 @@ func getStoryListHandler(w http.ResponseWriter, req *http.Request) error {
 
 func getStoryHandler(w http.ResponseWriter, req *http.Request) error {
 	if DEBUG_MODE {
-		STORIES, STORY_ID_TO_DIR = loadStories()
+		CURATED_STORIES, CURATED_STORY_ID_TO_DIR = loadCuratedStories()
 	}
 
 	storyId, err := mustExtractParam(req, "id")
@@ -506,7 +506,7 @@ func getImageHandler(w http.ResponseWriter, req *http.Request) error {
 	if !stringutil.IsAlphaNum(imageID) {
 		return newHTTPError(http.StatusBadRequest, "Invalid 'id' parameter: '%s'", imageID)
 	}
-	filePath := filepath.Join(STORIES_DIR, dir, "..", "images", imageID+".webp")
+	filePath := filepath.Join(CURATED_STORIES_DIR, dir, "..", "images", imageID+".webp")
 	http.ServeFile(w, req, filePath)
 	return nil
 }
@@ -622,7 +622,7 @@ func addFirebaseAuthDevReverseProxy(mux *http.ServeMux) {
 }
 
 func Serve() error {
-	STORIES, STORY_ID_TO_DIR = loadStories()
+	CURATED_STORIES, CURATED_STORY_ID_TO_DIR = loadCuratedStories()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/story-list", wrap(wrapMustBeMethod("GET", getStoryListHandler)))
