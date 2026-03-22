@@ -259,6 +259,34 @@ func findSentence(st story.StoryMultilingual, locale string, idx int) (story.Sen
 	return story.Sentence{}, newHTTPError(http.StatusNotFound, "Sentence not found")
 }
 
+// Takes a story and converts it to a dictionary digestible by the frontend.
+// Output format is:
+// {
+//   "id": "story_id",
+//   "localizations": {
+//     "l": {
+//       "title": "title",
+//       "chapters": [
+//         {
+//           "title": "title",
+//           "paragraphs": [
+//             {
+//               "sentences": [
+//                 {
+//                   "text": "sentence",
+//                   "index": "index",
+//                   "hasAudio": true,
+//                   "imageId": "image_id"
+//                 }
+//               ]
+//             }
+//           ]
+//         }
+//       ]
+//     },
+//     "r": { ... }
+//   }
+// }
 func convertStoryToDict(st story.StoryMultilingual, l, r string) map[string]any {
 	convertParagraph := func(par story.Paragraph) map[string]any {
 		var sentences []map[string]any
