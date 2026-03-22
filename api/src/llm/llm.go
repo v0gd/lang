@@ -7,10 +7,9 @@ import (
 	"lang/api/telemetry"
 
 	"github.com/invopop/jsonschema"
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
-	// Hypothetical Anthropics client (adjust as needed):
-	// "github.com/yourorg/anthropic"
+	"github.com/openai/openai-go/v3"
+	"github.com/openai/openai-go/v3/option"
+	"github.com/openai/openai-go/v3/shared"
 )
 
 // Set up OpenAI client
@@ -58,11 +57,11 @@ func invokeGpt(role string, content string, model openai.ChatModel) (string, err
 	resp, err := openaiClient.Chat.Completions.New(
 		context.Background(),
 		openai.ChatCompletionNewParams{
-			Model:            openai.F(model),
-			Messages:         openai.F(messages),
-			FrequencyPenalty: openai.F(0.0),
-			PresencePenalty:  openai.F(0.0),
-			Temperature:      openai.F(0.0),
+			Model:            model,
+			Messages:         messages,
+			FrequencyPenalty: openai.Float(0.0),
+			PresencePenalty:  openai.Float(0.0),
+			Temperature:      openai.Float(0.0),
 		},
 	)
 	if err != nil {
@@ -131,10 +130,10 @@ func invokeGptStructured(role string, content string, schema StructuredOutputSch
 	trace := telemetry.NewTrace(fmt.Sprintf("Invoking Structured Gpt \"%s\" model=%v", roleTruncatedForTrace(role), model))
 	defer trace.Stop()
 
-	schemaParam := openai.ResponseFormatJSONSchemaJSONSchemaParam{
-		Name:        openai.F(schema.Name),
-		Description: openai.F(schema.Description),
-		Schema:      openai.F(schema.Schema),
+	schemaParam := shared.ResponseFormatJSONSchemaJSONSchemaParam{
+		Name:        schema.Name,
+		Description: openai.String(schema.Description),
+		Schema:      schema.Schema,
 		Strict:      openai.Bool(true),
 	}
 
@@ -147,17 +146,16 @@ func invokeGptStructured(role string, content string, schema StructuredOutputSch
 	resp, err := openaiClient.Chat.Completions.New(
 		context.Background(),
 		openai.ChatCompletionNewParams{
-			Model:            openai.F(model),
-			Messages:         openai.F(messages),
-			FrequencyPenalty: openai.F(0.0),
-			PresencePenalty:  openai.F(0.0),
-			Temperature:      openai.F(0.0),
-			ResponseFormat: openai.F[openai.ChatCompletionNewParamsResponseFormatUnion](
-				openai.ResponseFormatJSONSchemaParam{
-					Type:       openai.F(openai.ResponseFormatJSONSchemaTypeJSONSchema),
-					JSONSchema: openai.F(schemaParam),
+			Model:            model,
+			Messages:         messages,
+			FrequencyPenalty: openai.Float(0.0),
+			PresencePenalty:  openai.Float(0.0),
+			Temperature:      openai.Float(0.0),
+			ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
+				OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{
+					JSONSchema: schemaParam,
 				},
-			),
+			},
 		},
 	)
 	if err != nil {
