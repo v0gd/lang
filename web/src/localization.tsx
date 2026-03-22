@@ -20,6 +20,9 @@ export interface LocalizationStrings {
   login_button: string;
   signup_button: string;
   logout_button: string;
+  settings_theme: string;
+  settings_theme_dark: string;
+  settings_theme_light: string;
   levels: Record<string, string>;
   moods: Record<string, string>;
   topics: Record<string, string>;
@@ -50,6 +53,9 @@ const strings = new Map<string, LocalizationStrings>([
       login_button: "Login",
       signup_button: "Sign up",
       logout_button: "Logout",
+      settings_theme: "Theme",
+      settings_theme_dark: "Dark",
+      settings_theme_light: "Light",
       levels: {
         A1: "Beginner",
         B1: "Intermediate",
@@ -110,6 +116,9 @@ const strings = new Map<string, LocalizationStrings>([
       login_button: "Einloggen",
       signup_button: "Registrieren",
       logout_button: "Ausloggen",
+      settings_theme: "Design",
+      settings_theme_dark: "Dunkel",
+      settings_theme_light: "Hell",
       levels: {
         A1: "Anfänger",
         B1: "Mittelstufe",
@@ -170,6 +179,9 @@ const strings = new Map<string, LocalizationStrings>([
       login_button: "Войти",
       signup_button: "Зарегистрироваться",
       logout_button: "Выйти",
+      settings_theme: "Тема",
+      settings_theme_dark: "Тёмная",
+      settings_theme_light: "Светлая",
       levels: {
         A1: "Начинающий",
         B1: "Средний",

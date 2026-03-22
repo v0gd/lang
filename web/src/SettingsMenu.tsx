@@ -2,27 +2,15 @@ import { Modal } from "./Modal";
 import { Settings, Theme } from "./settings";
 import { LanguageDropdown } from "./LanguageDropdown";
 import { lstr } from "./localization";
-import { auth, useLoggedIn } from "./firebase";
-import { useNavigate } from "react-router-dom";
 import { HiMoon, HiSun } from "react-icons/hi2";
 
 function SettingsMenu({
   settings,
   setSettings,
-  onLogout,
 }: {
   settings: Settings;
   setSettings: (value: Settings) => void;
-  onLogout: () => void;
 }) {
-  const loggedIn = useLoggedIn();
-  const navigate = useNavigate();
-
-  const logout = async () => {
-    await auth.signOut();
-    onLogout();
-  };
-
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-4">
@@ -52,7 +40,7 @@ function SettingsMenu({
         </div>
         <div className="flex items-center gap-3">
           <div className="min-w-[100px] text-sm text-secondary-text">
-            Theme
+            {lstr(settings.lLocale).settings_theme}
           </div>
           <button
             type="button"
@@ -70,21 +58,12 @@ function SettingsMenu({
             ) : (
               <HiSun className="text-base" />
             )}
-            {settings.theme === Theme.Dark ? "Dark" : "Light"}
+            {settings.theme === Theme.Dark
+              ? lstr(settings.lLocale).settings_theme_dark
+              : lstr(settings.lLocale).settings_theme_light}
           </button>
         </div>
       </div>
-      {loggedIn && (
-        <div className="pt-4 border-t border-border">
-          <button
-            type="button"
-            onClick={logout}
-            className="text-sm font-medium text-secondary-text hover:text-main-text transition-colors"
-          >
-            {lstr(settings.lLocale).logout_button}
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -98,12 +77,6 @@ export function SettingsModal({
   setSettings: (value: Settings) => void;
   closeModal: () => void;
 }) {
-  const navigate = useNavigate();
-  const onLogout = () => {
-    closeModal();
-    navigate("/");
-  };
-
   return (
     <Modal
       showCloseButton={true}
@@ -118,7 +91,6 @@ export function SettingsModal({
           <SettingsMenu
             settings={settings}
             setSettings={setSettings}
-            onLogout={onLogout}
           />
         </div>
       </div>

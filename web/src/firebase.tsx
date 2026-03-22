@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getAuth, onAuthStateChanged, User } from "firebase/auth";
 import { useEffect, useState } from "react";
 
 const firebaseConfig =
@@ -46,6 +46,19 @@ export function useLoggedIn() {
   }, []);
 
   return loggedIn;
+}
+
+export function useUser() {
+  const [user, setUser] = useState<User | null>(auth.currentUser);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  return user;
 }
 
 export async function getAuthToken() {
