@@ -50,7 +50,7 @@ function Image({ storyId, imageId }: { storyId: string; imageId?: string }) {
   imageUrl.searchParams.append("story_id", storyId);
   imageUrl.searchParams.append("id", imageId);
   return (
-    <div className="relative w-full pb-[40%] overflow-hidden rounded-xl bg-yellow mb-4">
+    <div className="relative w-full pb-[40%] overflow-hidden rounded-2xl shadow-sm mb-6">
       <img
         alt=""
         src={imageUrl.toString()}
@@ -132,7 +132,7 @@ function SentenceView({
           <Fragment key={idx}>
             {leading}
             <span
-              className={`cursor-pointer hover:bg-emerald-300 rounded px-[1px] transition-colors ${isActive ? "bg-emerald-300 relative" : ""}`}
+              className={`cursor-pointer hover:bg-highlight-light rounded px-[1px] transition-colors ${isActive ? "bg-highlight relative" : ""}`}
               onClick={(e) => onWordClick(e, currentWordIdx)}
             >
               {word}
@@ -297,11 +297,11 @@ function ChapterView({
   return (
     <div>
       {rChapter.title && (
-        <h2 className="text-xl font-bold text-center mt-4">
+        <h2 className="text-xl font-bold text-center mt-6 text-main-text">
           {rChapter.title}
         </h2>
       )}
-      <div className={`flex flex-col gap-${paragraphGap} mt-4`}>
+      <div className={`flex flex-col gap-${paragraphGap} mt-5`}>
         {rChapter.paragraphs.map((paragraph, index) => (
           <ParagraphView
             key={index}
@@ -336,13 +336,13 @@ function StoryView({
 
   if (query.isPending) {
     return (
-      <div className="w-full p-4 overflow-auto">{lstr(l).loading_story}</div>
+      <div className="w-full p-4 overflow-auto text-secondary-text">{lstr(l).loading_story}</div>
     );
   }
 
   if (query.isError) {
     return (
-      <div className="w-full p-4 overflow-auto font-semibold text-[22px]">
+      <div className="w-full p-4 overflow-auto font-semibold text-xl text-main-text">
         {query.error instanceof NotFoundError
           ? lstr(l).story_not_found_error
           : lstr(l).loading_story_error}
@@ -376,14 +376,14 @@ function StoryView({
     <PopupProvider>
       <div>
         <Image storyId={storyId} imageId={rStory.imageId} />
-        <h1 className="text-2xl font-bold text-center">{rStory.title}</h1>
+        <h1 className="text-2xl font-bold text-center text-main-text">{rStory.title}</h1>
         {shouldShowTranslation && (
-          <h1 className="text-2xl font-medium text-secondary-text text-center">
+          <h1 className="text-xl font-medium text-secondary-text text-center mt-1">
             {lStory.title}
           </h1>
         )}
-        <div className="mt-4">
-          <div className="flex flex-col gap-8 pb-10">
+        <div className="mt-6">
+          <div className="flex flex-col gap-10 pb-12">
             {rStory.chapters.map((chapter, index) => (
               <ChapterView
                 key={index}

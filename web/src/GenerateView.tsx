@@ -88,22 +88,22 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
 
   const strings = lstr(l);
 
+  const chipBase = "px-4 py-2 rounded-xl border text-sm font-medium transition-colors";
+  const chipSelected = "bg-primary text-white border-primary";
+  const chipUnselected = "bg-surface text-main-text border-border hover:bg-cream-dark";
+
   return (
-    <div className="p-6 flex flex-col gap-6 bg-gray-50 rounded-lg shadow-md max-w-xl mx-auto">
-      {/* Language Level */}
+    <div className="flex flex-col gap-8 max-w-xl mx-auto">
       <div>
-        <h2 className="text-xl font-semibold mb-2">Language Proficiency</h2>
-        <div className="flex flex-wrap gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
+          Language Proficiency
+        </h2>
+        <div className="flex flex-wrap gap-2">
           {levels.map((level) => (
             <button
               key={level}
               onClick={() => handleLevelSelect(level)}
-              className={`px-4 py-2 rounded border 
-                ${
-                  selectedLevel === level
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white text-gray-700 border-gray-300"
-                }`}
+              className={`${chipBase} ${selectedLevel === level ? chipSelected : chipUnselected}`}
             >
               {strings.levels[level]}
             </button>
@@ -111,20 +111,16 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
         </div>
       </div>
 
-      {/* Mood */}
       <div>
-        <h2 className="text-xl font-semibold mb-2">Mood (select up to 2)</h2>
-        <div className="flex flex-wrap gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
+          Mood (select up to 2)
+        </h2>
+        <div className="flex flex-wrap gap-2">
           {moods.map((mood) => (
             <button
               key={mood}
               onClick={() => handleMoodSelect(mood)}
-              className={`px-4 py-2 rounded border 
-                ${
-                  selectedMoods.includes(mood)
-                    ? "bg-purple-500 text-white border-purple-500"
-                    : "bg-white text-gray-700 border-gray-300"
-                }`}
+              className={`${chipBase} ${selectedMoods.includes(mood) ? chipSelected : chipUnselected}`}
             >
               {strings.moods[mood]}
             </button>
@@ -132,20 +128,16 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
         </div>
       </div>
 
-      {/* Topics */}
       <div>
-        <h2 className="text-xl font-semibold mb-2">Topics (select up to 2)</h2>
-        <div className="flex flex-wrap gap-3">
+        <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
+          Topics (select up to 2)
+        </h2>
+        <div className="flex flex-wrap gap-2">
           {topics.map((topic) => (
             <button
               key={topic}
               onClick={() => handleTopicSelect(topic)}
-              className={`px-4 py-2 rounded border 
-                ${
-                  selectedTopics.includes(topic)
-                    ? "bg-green-500 text-white border-green-500"
-                    : "bg-white text-gray-700 border-gray-300"
-                }`}
+              className={`${chipBase} ${selectedTopics.includes(topic) ? chipSelected : chipUnselected}`}
             >
               {strings.topics[topic]}
             </button>
@@ -153,19 +145,17 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
         </div>
       </div>
 
-      {/* Generate Button */}
-      <div className="flex justify-center">
-        <button
-          type="button"
-          onClick={handleGenerate}
-          className="px-6 py-2 rounded bg-blue-600 text-white font-semibold hover:bg-blue-700"
-        >
-          {!loggedIn && "Log in to Generate a new story"}
-          {loggedIn && generate.isIdle && "Generate!"}
-          {loggedIn && generate.isError && "Error"}
-          {loggedIn && !generate.isIdle && !generate.isError && "Generating..."}
-        </button>
-      </div>
+      <button
+        type="button"
+        onClick={handleGenerate}
+        className="w-full py-3 rounded-xl bg-primary text-white font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50"
+        disabled={loggedIn && !generate.isIdle}
+      >
+        {!loggedIn && "Log in to Generate a new story"}
+        {loggedIn && generate.isIdle && "Generate!"}
+        {loggedIn && generate.isError && "Error — try again"}
+        {loggedIn && !generate.isIdle && !generate.isError && "Generating..."}
+      </button>
     </div>
   );
 }

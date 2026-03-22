@@ -23,10 +23,10 @@ function SettingsMenu({
   };
 
   return (
-    <>
-      <div className="flex flex-col gap-2 items-left">
-        <div className="flex gap-2">
-          <div className="min-w-[100px]">
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-3">
+          <div className="min-w-[100px] text-sm text-secondary-text">
             {lstr(settings.lLocale).settings_i_speak}
           </div>
           <LanguageDropdown
@@ -37,8 +37,8 @@ function SettingsMenu({
             }
           />
         </div>
-        <div className="flex gap-2">
-          <div className="min-w-[100px]">
+        <div className="flex items-center gap-3">
+          <div className="min-w-[100px] text-sm text-secondary-text">
             {lstr(settings.lLocale).settings_i_learn}
           </div>
           <LanguageDropdown
@@ -49,19 +49,19 @@ function SettingsMenu({
             }
           />
         </div>
-        <div>
-          {loggedIn && (
-            <button
-              type="button"
-              onClick={logout}
-              className="text-left text-blue-600 mt-6"
-            >
-              {lstr(settings.lLocale).logout_button}
-            </button>
-          )}
-        </div>
       </div>
-    </>
+      {loggedIn && (
+        <div className="pt-4 border-t border-border">
+          <button
+            type="button"
+            onClick={logout}
+            className="text-sm font-medium text-secondary-text hover:text-main-text transition-colors"
+          >
+            {lstr(settings.lLocale).logout_button}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -86,11 +86,11 @@ export function SettingsModal({
       locale={settings.lLocale}
       closeModal={closeModal}
     >
-      <div className="p-4">
-        <h1 className="text-2xl font-semibold">
+      <div className="p-2">
+        <h1 className="text-xl font-semibold text-main-text">
           {lstr(settings.lLocale).settings_title}
         </h1>
-        <div className="mt-4">
+        <div className="mt-5">
           <SettingsMenu
             settings={settings}
             setSettings={setSettings}

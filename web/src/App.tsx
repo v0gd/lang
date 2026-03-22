@@ -70,7 +70,7 @@ function StoryMenuComponent() {
           closeModal={() => setShowSettings(false)}
         />
       )}
-      <div className="flex flex-col items-center w-full h-full bg-main-white overflow-auto">
+      <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
           displayingStory={false}
           settings={settings}
@@ -113,7 +113,7 @@ function StoryComponent() {
           closeModal={() => setShowSettings(false)}
         />
       )}
-      <div className="flex flex-col items-center w-full h-full bg-main-white overflow-auto">
+      <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
           displayingStory={true}
           settings={settings}
@@ -149,7 +149,7 @@ function StoryGenerateComponent() {
           closeModal={() => setShowSettings(false)}
         />
       )}
-      <div className="flex flex-col items-center w-full h-full bg-main-white overflow-auto">
+      <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
           displayingStory={false}
           settings={settings}
@@ -177,7 +177,7 @@ function LoginComponent() {
           closeModal={() => setShowSettings(false)}
         />
       )}
-      <div className="flex flex-col items-center w-full h-full bg-main-white overflow-auto">
+      <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
           displayingStory={false}
           settings={settings}
@@ -205,7 +205,7 @@ function SignUpComponent() {
           closeModal={() => setShowSettings(false)}
         />
       )}
-      <div className="flex flex-col items-center w-full h-full bg-main-white overflow-auto">
+      <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
           displayingStory={false}
           settings={settings}

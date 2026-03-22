@@ -23,12 +23,11 @@ export function Modal({
 
   return (
     <dialog
-      className={`flex flex-col rounded-xl max-w-[90%] w-[600px] bg-white shadow-lg backdrop:bg-black/70 backdrop:backdrop-blur-md ${height}`}
+      className={`flex flex-col rounded-2xl max-w-[90%] w-[600px] bg-surface border border-border shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-sm ${height}`}
       ref={ref}
       onCancel={closeModal}
       onClick={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
-        // If click is outside the dialog’s rectangle, close the modal
         if (
           e.clientX < rect.left ||
           e.clientX > rect.right ||
@@ -39,14 +38,14 @@ export function Modal({
         }
       }}
     >
-      <div className="flex-grow p-4">{children}</div>
+      <div className="flex-grow p-5">{children}</div>
       {showCloseButton && (
-        <div className="flex justify-center">
+        <div className="flex justify-center border-t border-border">
           <button
-            className="p-4 text-lg font-semibold text-gray-800 flex items-center"
+            className="p-4 text-sm font-medium text-secondary-text hover:text-main-text flex items-center gap-1 transition-colors"
             onClick={closeModal}
           >
-            <IoClose className="inline mt-[2px]" />
+            <IoClose className="text-lg" />
             {lstr(locale).close_button_caption}
           </button>
         </div>

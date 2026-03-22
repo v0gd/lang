@@ -40,11 +40,11 @@ export function ExplanationModal({
       closeModal={closeModal}
       height="h-[90%] max-h-[1200px]"
     >
-      <div className="flex flex-col px-4 pt-4">
-        <div className="text-xl text-main-text font-semibold">
+      <div className="flex flex-col px-2 pt-2">
+        <div className="text-lg text-main-text font-semibold leading-relaxed">
           {rSentence.text}
         </div>
-        <div className="text-xl font-semibold text-secondary-text mt-4">
+        <div className="text-lg font-medium text-secondary-text mt-3 leading-relaxed">
           {lSentence.text}
         </div>
         {lSentence.hasAudio && (
@@ -53,14 +53,14 @@ export function ExplanationModal({
           </div>
         )}
         {query.isPending && (
-          <div className="mt-8">{lstr(l).loading_explain}</div>
+          <div className="mt-8 text-secondary-text">{lstr(l).loading_explain}</div>
         )}
         {query.isError && (
-          <div className="mt-8">{lstr(l).loading_explain_error}</div>
+          <div className="mt-8 text-red-600">{lstr(l).loading_explain_error}</div>
         )}
         {query.isSuccess && (
           <div
-            className="mt-8 flex flex-col gap-4"
+            className="mt-8 flex flex-col gap-4 text-main-text leading-relaxed"
             dangerouslySetInnerHTML={{ __html: query.data }}
           ></div>
         )}
@@ -134,7 +134,7 @@ export function WordExplanationPopup({
   return (
     <div
       ref={popupRef}
-      className="absolute -left-4 z-50 bg-emerald-50 rounded-xl shadow-2xl ring-1 ring-black/10 border border-emerald-200 px-5 py-4"
+      className="absolute -left-4 z-50 bg-surface rounded-xl shadow-xl border border-border px-5 py-4"
       style={{
         ...(above
           ? { bottom: "100%", marginBottom: 5 }
@@ -145,9 +145,9 @@ export function WordExplanationPopup({
       onClick={(e) => e.stopPropagation()}
     >
       {query.isPending && (
-        <div className="flex items-center gap-2 text-gray-500">
+        <div className="flex items-center gap-2 text-secondary-text">
           <svg
-            className="animate-spin h-4 w-4"
+            className="animate-spin h-4 w-4 text-primary"
             viewBox="0 0 24 24"
             fill="none"
           >
@@ -169,10 +169,10 @@ export function WordExplanationPopup({
         </div>
       )}
       {query.isError && (
-        <p className="text-red-600">{lstr(l).loading_explain_error}</p>
+        <p className="text-red-600 text-sm">{lstr(l).loading_explain_error}</p>
       )}
       {query.isSuccess && (
-        <p className="text-base text-gray-800 leading-relaxed">
+        <p className="text-sm text-main-text leading-relaxed">
           {query.data}
         </p>
       )}

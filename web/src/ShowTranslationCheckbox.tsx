@@ -14,14 +14,13 @@ export function ShowTranslationCheckbox({
   };
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className="flex items-center gap-2">
       <input
         type="checkbox"
         checked={isChecked}
         onChange={handleOnChange}
-        className="w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 focus:ring-2 accent-teal-600"
       />
-      <label className="text-sm text-[#F8F3E6]">
+      <label className="text-sm text-main-text select-none cursor-pointer" onClick={handleOnChange}>
         {lstr(l).show_translation_checkbox}
       </label>
     </div>
@@ -44,15 +43,17 @@ export function ShowTranslationBySentenceCheckbox({
   };
 
   return (
-    <div className="flex items-center space-x-2">
+    <div className={`flex items-center gap-2 ${!isEnabled ? "opacity-40" : ""}`}>
       <input
         type="checkbox"
         checked={isChecked}
         disabled={!isEnabled}
         onChange={handleOnChange}
-        className="w-4 h-4 text-blue-600 bg-gray-100 rounded border-gray-300 focus:ring-blue-500 focus:ring-2 accent-teal-600"
       />
-      <label className="text-sm text-[#F8F3E6]">
+      <label
+        className={`text-sm text-main-text select-none ${isEnabled ? "cursor-pointer" : "cursor-not-allowed"}`}
+        onClick={isEnabled ? handleOnChange : undefined}
+      >
         {lstr(l).show_translation_by_sentence_checkbox}
       </label>
     </div>

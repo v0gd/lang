@@ -14,16 +14,31 @@ import { Modal } from "./Modal";
 function Button({
   children,
   onPressed,
+  variant = "default",
 }: {
   children: React.ReactNode;
   onPressed: () => void;
+  variant?: "default" | "cta";
 }) {
+  if (variant === "cta") {
+    return (
+      <div className="w-full mt-2 mb-4">
+        <button
+          type="button"
+          onClick={onPressed}
+          className="w-full bg-primary hover:bg-primary-hover text-white p-3 rounded-xl transition-colors"
+        >
+          {children}
+        </button>
+      </div>
+    );
+  }
   return (
-    <div className="w-full px-3">
+    <div className="w-full">
       <button
         type="button"
         onClick={onPressed}
-        className="my-2 w-full hover:bg-blue-100 p-2 bg-gray-50 rounded-lg shadow-lg max-w-xl"
+        className="my-1.5 w-full hover:bg-cream-dark p-3 bg-surface border border-border rounded-xl transition-colors"
       >
         {children}
       </button>
@@ -52,32 +67,32 @@ function StoryButton({
   const shouldShowFlags = !languagesMatch && showLanguageFlagsIfDontMatch;
   return (
     <Button onPressed={() => onStorySelected(s.id)}>
-      <div className="flex justify-left items-center w-[100%]">
-        <div className="text-center min-w-[60px] font-semibold text-base">
+      <div className="flex items-center w-full gap-3">
+        <div className="text-center min-w-[48px] text-sm font-semibold text-primary bg-primary-light rounded-full py-1">
           {s.level}
         </div>
-        <div className="flex flex-col flex-grow items-left text-left text-base">
-          <div className="font-semibold">
+        <div className="flex flex-col flex-grow text-left">
+          <div className="font-semibold text-main-text">
             {s.locales[0] == l ? s.titles[1] : s.titles[0]}
           </div>
-          <div className="text-secondary-text font-semibold">
+          <div className="text-secondary-text text-sm">
             {s.locales[0] == l ? s.titles[0] : s.titles[1]}
           </div>
         </div>
         {shouldShowFlags && (
-          <div className="flex justify-center items-center min-w-[40px] text-center">
+          <div className="flex items-center min-w-[40px] text-center">
             {getFlagEmoji(s.locales[0]) + getFlagEmoji(s.locales[1])}
           </div>
         )}
         {onDelete && (
           <div
-            className="flex items-center justify-center min-w-[40px] text-gray-400 hover:text-red-500 transition-colors"
+            className="flex items-center justify-center min-w-[40px] text-muted-text hover:text-red-500 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(s.id);
             }}
           >
-            <FaTrashCan size={16} />
+            <FaTrashCan size={14} />
           </div>
         )}
       </div>
@@ -107,18 +122,18 @@ export function StoryMenuUnauthorized({
 
   return (
     <div className="w-full overflow-auto">
-      <header className="text-left text-2xl font-semibold">
+      <header className="text-left text-2xl font-semibold text-main-text mb-3">
         {lstr(l).my_stories_header}
       </header>
 
-      <Button key="generate" onPressed={() => navigate("/generate")}>
-        <div className="w-full min-h-12 flex justify-left font-semibold text-lg items-center">
-          <FaWandMagicSparkles className="inline-block mr-2 mt-[2px]" />
+      <Button key="generate" onPressed={() => navigate("/generate")} variant="cta">
+        <div className="w-full flex justify-center font-semibold text-base items-center gap-2">
+          <FaWandMagicSparkles />
           {lstr(l).generate_story_button}
         </div>
       </Button>
 
-      <header className="text-left text-2xl font-semibold mt-10">
+      <header className="text-left text-2xl font-semibold text-main-text mt-10 mb-3">
         {lstr(l).stories_header}
       </header>
 
@@ -179,7 +194,7 @@ export function StoryMenu({
           closeModal={() => setConfirmDeleteId(null)}
         >
           <div className="flex flex-col items-center gap-4 py-2">
-            <p className="text-lg font-semibold text-gray-800">
+            <p className="text-lg font-semibold text-main-text">
               Delete this story?
             </p>
             <p className="text-secondary-text text-sm">
@@ -187,13 +202,13 @@ export function StoryMenu({
             </p>
             <div className="flex gap-3 mt-2 w-full">
               <button
-                className="flex-1 py-2 rounded-lg font-semibold bg-gray-50 hover:bg-blue-100 shadow transition-colors"
+                className="flex-1 py-2.5 rounded-xl font-semibold border border-border bg-surface hover:bg-cream-dark transition-colors"
                 onClick={() => setConfirmDeleteId(null)}
               >
                 Cancel
               </button>
               <button
-                className="flex-1 py-2 rounded-lg font-semibold bg-red-500 hover:bg-red-600 text-white shadow transition-colors"
+                className="flex-1 py-2.5 rounded-xl font-semibold bg-red-500 hover:bg-red-600 text-white transition-colors"
                 onClick={confirmDelete}
               >
                 Delete
@@ -203,13 +218,13 @@ export function StoryMenu({
         </Modal>
       )}
 
-      <header className="text-left text-2xl font-semibold">
+      <header className="text-left text-2xl font-semibold text-main-text mb-3">
         {lstr(l).my_stories_header}
       </header>
 
-      <Button key="generate" onPressed={() => navigate("/generate")}>
-        <div className="w-full min-h-12 flex justify-center font-semibold text-lg items-center">
-          <FaWandMagicSparkles className="inline-block mr-2 mt-[2px]" />
+      <Button key="generate" onPressed={() => navigate("/generate")} variant="cta">
+        <div className="w-full flex justify-center font-semibold text-base items-center gap-2">
+          <FaWandMagicSparkles />
           {lstr(l).generate_story_button}
         </div>
       </Button>
@@ -232,10 +247,10 @@ export function StoryMenu({
         )}
 
       {queryGenerated.isError && (
-        <div className="text-red-800">{lstr(l).loading_story_list_error}</div>
+        <div className="text-red-600 text-sm mt-2">{lstr(l).loading_story_list_error}</div>
       )}
 
-      <header className="text-left text-2xl font-semibold mt-10">
+      <header className="text-left text-2xl font-semibold text-main-text mt-10 mb-3">
         {lstr(l).stories_header}
       </header>
 
