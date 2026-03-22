@@ -96,7 +96,7 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
     <div className="flex flex-col gap-8 max-w-xl mx-auto">
       <div>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
-          Language Proficiency
+          {strings.generate_level_heading}
         </h2>
         <div className="flex flex-wrap gap-2">
           {levels.map((level) => (
@@ -113,7 +113,7 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
 
       <div>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
-          Mood (select up to 2)
+          {strings.generate_mood_heading}
         </h2>
         <div className="flex flex-wrap gap-2">
           {moods.map((mood) => (
@@ -130,7 +130,7 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
 
       <div>
         <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
-          Topics (select up to 2)
+          {strings.generate_topic_heading}
         </h2>
         <div className="flex flex-wrap gap-2">
           {topics.map((topic) => (
@@ -151,10 +151,10 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
         className="w-full py-3 rounded-xl bg-primary text-white font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50"
         disabled={loggedIn && !generate.isIdle}
       >
-        {!loggedIn && "Log in to Generate a new story"}
-        {loggedIn && generate.isIdle && "Generate!"}
-        {loggedIn && generate.isError && "Error — try again"}
-        {loggedIn && !generate.isIdle && !generate.isError && "Generating..."}
+        {!loggedIn && strings.generate_login_prompt}
+        {loggedIn && generate.isIdle && strings.generate_button}
+        {loggedIn && generate.isError && strings.generate_error}
+        {loggedIn && !generate.isIdle && !generate.isError && strings.generate_in_progress}
       </button>
     </div>
   );

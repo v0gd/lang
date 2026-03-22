@@ -23,6 +23,13 @@ export interface LocalizationStrings {
   settings_theme: string;
   settings_theme_dark: string;
   settings_theme_light: string;
+  generate_level_heading: string;
+  generate_mood_heading: string;
+  generate_topic_heading: string;
+  generate_login_prompt: string;
+  generate_button: string;
+  generate_error: string;
+  generate_in_progress: string;
   levels: Record<string, string>;
   moods: Record<string, string>;
   topics: Record<string, string>;
@@ -56,6 +63,13 @@ const strings = new Map<string, LocalizationStrings>([
       settings_theme: "Theme",
       settings_theme_dark: "Dark",
       settings_theme_light: "Light",
+      generate_level_heading: "Language Proficiency",
+      generate_mood_heading: "Mood (select up to 2)",
+      generate_topic_heading: "Topics (select up to 2)",
+      generate_login_prompt: "Log in to generate a new story",
+      generate_button: "Generate!",
+      generate_error: "Error — try again",
+      generate_in_progress: "Generating...",
       levels: {
         A1: "Beginner",
         B1: "Intermediate",
@@ -119,6 +133,13 @@ const strings = new Map<string, LocalizationStrings>([
       settings_theme: "Design",
       settings_theme_dark: "Dunkel",
       settings_theme_light: "Hell",
+      generate_level_heading: "Sprachniveau",
+      generate_mood_heading: "Stimmung (bis zu 2 wählen)",
+      generate_topic_heading: "Themen (bis zu 2 wählen)",
+      generate_login_prompt: "Einloggen, um eine Geschichte zu generieren",
+      generate_button: "Generieren!",
+      generate_error: "Fehler — erneut versuchen",
+      generate_in_progress: "Wird generiert...",
       levels: {
         A1: "Anfänger",
         B1: "Mittelstufe",
@@ -182,6 +203,13 @@ const strings = new Map<string, LocalizationStrings>([
       settings_theme: "Тема",
       settings_theme_dark: "Тёмная",
       settings_theme_light: "Светлая",
+      generate_level_heading: "Уровень языка",
+      generate_mood_heading: "Настроение (выберите до 2)",
+      generate_topic_heading: "Темы (выберите до 2)",
+      generate_login_prompt: "Войдите, чтобы сгенерировать историю",
+      generate_button: "Сгенерировать!",
+      generate_error: "Ошибка — попробуйте снова",
+      generate_in_progress: "Генерация...",
       levels: {
         A1: "Начинающий",
         B1: "Средний",
