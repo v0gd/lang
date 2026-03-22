@@ -51,7 +51,7 @@ type Segment struct {
 	// Either Tokens or Text will be set
 	Tokens []Token `json:"tokens,omitempty"`
 	Text   string  `json:"text,omitempty"`
-	Index  int     `json:"index"`
+	Index  int     `json:"index"`  // index of the segment in the story
 }
 
 func (s Segment) ToStr() string {
@@ -76,7 +76,7 @@ func (s Segment) ToStrNoGroups() string {
 
 type Sentence struct {
 	Segments []Segment `json:"segments"`
-	Index    int       `json:"index"`
+	Index    int       `json:"index"` // index of the sentence in the story
 }
 
 func (sen Sentence) ToPlainStr() string {
@@ -144,6 +144,14 @@ func hasTokenWithNonZeroGroup(tokens []Token) bool {
 	return false
 }
 
+// Parses a raw sentence string into a structured Sentence. Sentence is a collection
+// of segments. Each segment is either a collection of tokens if any token belongs
+// to a token group or otherwise a plain text string.
+//
+// The input format uses "||" to delimit segments withing the sentence and spaces to
+// delimit tokens within a segment. Tokens may carry group IDs in parentheses to link
+// multiple tokens (e.g. in "Plain took(1) off(1)" "Take off" belongs to the same
+// token group). "@" is treated as a line break (yeah, sentences may be multiline).
 func ParseSentence(line string) Sentence {
 	line = strings.ReplaceAll(line, "@", "\n")
 	var segments []Segment
@@ -263,6 +271,22 @@ func extractOptionalString(params map[string]interface{}, key string) (string, e
 	}
 	return str, nil
 }
+
+
+// Each line in the input is either a story metadata line, a locale definition line,
+// a tag line or a sentence line.
+//
+// Empty lines are skipped.
+// Lines starting with "#" are comments and are skipped.
+//
+// First line should be "STORY_ID LEVEL" (e.g. "beneath-peeling-paint-c1 B2-C1").
+// Next line should be a comma-separated list of locales (e.g. "en, de, ru").
+// Tag line is a line that starts with a tag (e.g. "/t", "/s", "/p", "/c") and contains a JSON object with optional parameters (e.g. "/t { "titles": ["Beneath", "Unter", "Под"], "image_id": "4" }").
+// Sentence line is a line that contains a sentence (e.g. "The phone rang(1) || slicing through.").
+// The same sentence tranlations for all locales are grouped together (go after each other).
+//
+// See `Test()` below for an example of the input format.
+
 
 func Parse(lines []string) StoryMultilingual {
 	var storyId *Id
@@ -402,11 +426,13 @@ func Parse(lines []string) StoryMultilingual {
 			}
 		}
 
+		// Story, scene and paragraph may contain an attached image.
 		imageId, err := extractOptionalString(params, "image_id")
 		if err != nil {
 			panicAtLine(fmt.Sprintf("error parsing 'image_id': %v", err))
 		}
 
+		// Story and chapter may contain titles in the order of locales.
 		titles, err := extractOptionalStringArray(params, "titles")
 		if err != nil {
 			panicAtLine(fmt.Sprintf("error parsing 'titles': %v", err))
