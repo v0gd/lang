@@ -47,18 +47,13 @@ export function useStoryListQuery(l: string, r: string) {
   });
 }
 
-export function useGeneratedStoryListQuery(
-  authorId: string,
-  l: string,
-  r: string,
-) {
+export function useGeneratedStoryListQuery(l: string, r: string) {
   let url = new URL(`${API_URL}/generated-list`);
-  url.searchParams.append("author_id", authorId);
   url.searchParams.append("l", l);
   url.searchParams.append("r", r);
 
   return useQuery<StoryDescriptor[]>({
-    queryKey: ["generated-story-list", authorId],
+    queryKey: ["generated-story-list"],
     queryFn: async () =>
       fetchParamsWithAuth("GET").then((params) =>
         fetch(url, params).then((res) => {
@@ -161,6 +156,25 @@ export function useGenerateStoryMutation() {
       });
     },
     retry: false,
+  });
+}
+
+export function useDeleteStoryMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (storyId: string) => {
+      let url = apiUrl("/delete-generated");
+      url.searchParams.append("story_id", storyId);
+
+      const params = await fetchParamsWithAuth("DELETE");
+      const res = await fetch(url, params);
+      if (!res.ok) {
+        throw new Error("Failed to delete story");
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
+    },
   });
 }
 

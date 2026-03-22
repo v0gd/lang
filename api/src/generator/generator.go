@@ -10,6 +10,7 @@ import (
 	"lang/api/story"
 	"lang/api/stringutil"
 	"lang/api/telemetry"
+	"log/slog"
 	"math/rand"
 	"strings"
 	"time"
@@ -287,13 +288,46 @@ func Get(id story.Id) (story.StoryMultilingual, error) {
 }
 
 func Delete(id story.Id, authorId string) (int64, error) {
-	result, err := deleteStmt.Exec(id, authorId)
+	tx, err := db.Db.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	result, err := tx.Stmt(deleteStmt).Exec(id, authorId)
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete story from db: %w", err)
 	}
 	cnt, err := result.RowsAffected()
 	if err != nil {
 		return 0, fmt.Errorf("failed to get the number of rows affected: %w", err)
+	}
+	if cnt == 0 {
+		return 0, nil
+	}
+
+	weResult, err := tx.Exec("DELETE FROM word_explanation WHERE story_id = ?", id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete word explanations: %w", err)
+	}
+	eResult, err := tx.Exec("DELETE FROM explanation WHERE story_id = ?", id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete explanations: %w", err)
+	}
+	ttsResult, err := tx.Exec("DELETE FROM tts WHERE story_id = ?", id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete tts data: %w", err)
+	}
+
+	weCount, _ := weResult.RowsAffected()
+	eCount, _ := eResult.RowsAffected()
+	ttsCount, _ := ttsResult.RowsAffected()
+	slog.Info(fmt.Sprintf("Deleting story %s: removed %d word_explanations, %d explanations, %d tts entries",
+		id, weCount, eCount, ttsCount))
+
+	err = tx.Commit()
+	if err != nil {
+		return 0, fmt.Errorf("failed to commit transaction: %w", err)
 	}
 	return cnt, nil
 }
@@ -362,7 +396,7 @@ func eraseNewlines(s string) string {
 	return strings.ReplaceAll(s, "\n", " ")
 }
 
-func Generate(params InputParameters) (story.StoryMultilingual, error) {
+func Generate(params InputParameters, authorId string) (story.StoryMultilingual, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Generating a story %s->%s %s: %s - %s",
 		params.L, params.R, params.Level,
 		strings.Join(params.Topics, ","), strings.Join(params.Moods, ",")))
@@ -444,7 +478,7 @@ func Generate(params InputParameters) (story.StoryMultilingual, error) {
 	}
 
 	story.CalculateSentenceAndSegmentIndices(&sMult)
-	err = store(sMult, params, "test-author")
+	err = store(sMult, params, authorId)
 	return sMult, err
 }
 
@@ -455,7 +489,7 @@ func Test() {
 		R:      "ru",
 		Topics: []string{"family", "friendship"},
 	}
-	_, err := Generate(params)
+	_, err := Generate(params, "test")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to generate story: %v", err))
 	}

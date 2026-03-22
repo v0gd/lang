@@ -1,9 +1,15 @@
-import { useGeneratedStoryListQuery, useStoryListQuery } from "./queries";
+import { useState } from "react";
+import {
+  useDeleteStoryMutation,
+  useGeneratedStoryListQuery,
+  useStoryListQuery,
+} from "./queries";
 import { lstr } from "./localization";
 import { useNavigate } from "react-router-dom";
-import { FaWandMagicSparkles } from "react-icons/fa6";
+import { FaWandMagicSparkles, FaTrashCan } from "react-icons/fa6";
 import { StoryDescriptor } from "./story";
 import getFlagEmoji from "./LanguageFlag";
+import { Modal } from "./Modal";
 
 function Button({
   children,
@@ -31,12 +37,14 @@ function StoryButton({
   r,
   showLanguagesIfDontMatch: showLanguageFlagsIfDontMatch,
   onStorySelected,
+  onDelete,
 }: {
   s: StoryDescriptor;
   l: string;
   r: string;
   showLanguagesIfDontMatch: boolean;
   onStorySelected: (storyId: string) => void;
+  onDelete?: (storyId: string) => void;
 }) {
   const languagesMatch =
     (s.locales[0] === l && s.locales[1] === r) ||
@@ -61,7 +69,17 @@ function StoryButton({
             {getFlagEmoji(s.locales[0]) + getFlagEmoji(s.locales[1])}
           </div>
         )}
-        {/* {!shouldShowFlags && <div className="min-w-[60px]"></div>} */}
+        {onDelete && (
+          <div
+            className="flex items-center justify-center min-w-[40px] text-gray-400 hover:text-red-500 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(s.id);
+            }}
+          >
+            <FaTrashCan size={16} />
+          </div>
+        )}
       </div>
     </Button>
   );
@@ -133,7 +151,16 @@ export function StoryMenu({
 }) {
   const navigate = useNavigate();
   const query = useStoryListQuery(l, r);
-  const queryGenerated = useGeneratedStoryListQuery("test-author", l, r);
+  const queryGenerated = useGeneratedStoryListQuery(l, r);
+  const deleteMutation = useDeleteStoryMutation();
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  const confirmDelete = () => {
+    if (confirmDeleteId) {
+      deleteMutation.mutate(confirmDeleteId);
+      setConfirmDeleteId(null);
+    }
+  };
 
   if (query.isPending || queryGenerated.isPending) {
     return <div>{lstr(l).loading_story_list}</div>;
@@ -145,6 +172,37 @@ export function StoryMenu({
 
   return (
     <div className="w-full overflow-auto">
+      {confirmDeleteId && (
+        <Modal
+          showCloseButton={false}
+          locale={l}
+          closeModal={() => setConfirmDeleteId(null)}
+        >
+          <div className="flex flex-col items-center gap-4 py-2">
+            <p className="text-lg font-semibold text-gray-800">
+              Delete this story?
+            </p>
+            <p className="text-secondary-text text-sm">
+              The story and all its data will be permanently removed.
+            </p>
+            <div className="flex gap-3 mt-2 w-full">
+              <button
+                className="flex-1 py-2 rounded-lg font-semibold bg-gray-50 hover:bg-blue-100 shadow transition-colors"
+                onClick={() => setConfirmDeleteId(null)}
+              >
+                Cancel
+              </button>
+              <button
+                className="flex-1 py-2 rounded-lg font-semibold bg-red-500 hover:bg-red-600 text-white shadow transition-colors"
+                onClick={confirmDelete}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
       <header className="text-left text-2xl font-semibold">
         {lstr(l).my_stories_header}
       </header>
@@ -167,6 +225,7 @@ export function StoryMenu({
                 l={l}
                 r={r}
                 onStorySelected={onStorySelected}
+                onDelete={setConfirmDeleteId}
                 showLanguagesIfDontMatch={true}
               />
             ),

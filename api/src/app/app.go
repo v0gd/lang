@@ -601,7 +601,7 @@ func generateStoryHandler(w http.ResponseWriter, req *http.Request, uid string) 
 		Moods:  moodsFiltered,
 	}
 	// TODO: re-try a few times
-	s, err := generator.Generate(params)
+	s, err := generator.Generate(params, uid)
 	if err != nil {
 		return fmt.Errorf("story.Generate error: %w", err)
 	}
@@ -613,34 +613,30 @@ func generateStoryHandler(w http.ResponseWriter, req *http.Request, uid string) 
 	return writeJSON(w, dict)
 }
 
-func getGeneratedStoryListHandler(w http.ResponseWriter, req *http.Request) error {
-	authorId, err := mustExtractParam(req, "author_id")
-	if err != nil {
-		return err
-	}
-	stories, err := generator.List(authorId)
+func getGeneratedStoryListHandler(w http.ResponseWriter, req *http.Request, uid string) error {
+	stories, err := generator.List(uid)
 	if err != nil {
 		return fmt.Errorf("list error: %w", err)
 	}
+	slog.Info(fmt.Sprintf("Listed %d generated stories for user %s", len(stories), uid))
 	return writeJSON(w, stories)
 }
 
-func deleteGeneratedStoryHandler(w http.ResponseWriter, req *http.Request) error {
+func deleteGeneratedStoryHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 	storyId, err := mustExtractParam(req, "story_id")
 	if err != nil {
 		return err
 	}
-	authorId, err := mustExtractParam(req, "author_id")
+	slog.Info(fmt.Sprintf("Deleting story %s for user %s", storyId, uid))
+	cnt, err := generator.Delete(storyId, uid)
 	if err != nil {
-		return err
-	}
-	cnt, err := generator.Delete(storyId, authorId)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to delete story %s for user %s: %w", storyId, uid, err)
 	}
 	if cnt == 0 {
+		slog.Warn(fmt.Sprintf("Story %s not found for user %s", storyId, uid))
 		return newHTTPError(http.StatusNotFound, "Story not found")
 	}
+	slog.Info(fmt.Sprintf("Deleted story %s for user %s", storyId, uid))
 	return nil
 }
 
@@ -675,8 +671,8 @@ func Serve() error {
 	mux.HandleFunc("/story-list", wrap(wrapMustBeMethod("GET", getStoryListHandler)))
 	mux.HandleFunc("/story", wrap(wrapMustBeMethod("GET", getStoryHandler)))
 	mux.HandleFunc("/generate", wrap(wrapMustBeMethod("POST", wrapAuth(generateStoryHandler))))
-	mux.HandleFunc("/generated-list", wrap(wrapMustBeMethod("GET", getGeneratedStoryListHandler)))
-	mux.HandleFunc("/delete-generated", wrap(wrapMustBeMethod("DELETE", deleteGeneratedStoryHandler)))
+	mux.HandleFunc("/generated-list", wrap(wrapMustBeMethod("GET", wrapAuth(getGeneratedStoryListHandler))))
+	mux.HandleFunc("/delete-generated", wrap(wrapMustBeMethod("DELETE", wrapAuth(deleteGeneratedStoryHandler))))
 	mux.HandleFunc("/explain", wrap(wrapMustBeMethod("GET", getExplanationHandler)))
 	mux.HandleFunc("/audio", wrap(wrapMustBeMethod("GET", getAudioHandler)))
 	mux.HandleFunc("/image", wrap(wrapMustBeMethod("GET", getImageHandler)))
