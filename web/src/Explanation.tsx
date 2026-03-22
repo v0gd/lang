@@ -110,7 +110,8 @@ export function WordExplanationPopup({
     setAbove(spaceBelow < popupHeight + gap && parentRect.top > popupHeight + gap);
 
     const margin = 8;
-    const naturalLeft = parentRect.left;
+    const nudge = 16;
+    const naturalLeft = parentRect.left - nudge;
     let shift = 0;
     if (naturalLeft + popupWidth > window.innerWidth - margin) {
       shift = window.innerWidth - margin - naturalLeft - popupWidth;
@@ -133,7 +134,7 @@ export function WordExplanationPopup({
   return (
     <div
       ref={popupRef}
-      className="absolute left-0 z-50 bg-emerald-50 rounded-xl shadow-2xl ring-1 ring-black/10 border border-emerald-200 px-5 py-4"
+      className="absolute -left-4 z-50 bg-emerald-50 rounded-xl shadow-2xl ring-1 ring-black/10 border border-emerald-200 px-5 py-4"
       style={{
         ...(above
           ? { bottom: "100%", marginBottom: 5 }
