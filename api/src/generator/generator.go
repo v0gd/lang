@@ -40,7 +40,7 @@ func Setup() {
 	}
 	loadListStmt, err = db.Db.Prepare(
 		"SELECT id, language_level, locales, titles FROM story " +
-			"WHERE author_id = ? and deleted = 0;")
+			"WHERE author_id = ? AND deleted = 0 AND FIND_IN_SET(?, locales) AND FIND_IN_SET(?, locales);")
 	if err != nil {
 		panic(err)
 	}
@@ -242,8 +242,8 @@ type InputParameters struct {
 	Moods  []string     `json:"mood"`
 }
 
-func List(authorId string) ([]story.StoryDescriptor, error) {
-	rows, err := loadListStmt.Query(authorId)
+func List(authorId string, l story.Locale, r story.Locale) ([]story.StoryDescriptor, error) {
+	rows, err := loadListStmt.Query(authorId, l, r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load list of stories from db: %w", err)
 	}

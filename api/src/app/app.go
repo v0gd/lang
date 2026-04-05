@@ -614,7 +614,11 @@ func generateStoryHandler(w http.ResponseWriter, req *http.Request, uid string) 
 }
 
 func getGeneratedStoryListHandler(w http.ResponseWriter, req *http.Request, uid string) error {
-	stories, err := generator.List(uid)
+	l, r, err := mustExtractLocalePair(req)
+	if err != nil {
+		return err
+	}
+	stories, err := generator.List(uid, l, r)
 	if err != nil {
 		return fmt.Errorf("list error: %w", err)
 	}
