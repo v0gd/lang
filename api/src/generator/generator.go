@@ -190,8 +190,7 @@ func generateStory(level string, topics []string, moods []string) (string, error
 		fmt.Sprintf("Generating a story %s: %s - %s", level, strings.Join(topics, ","), strings.Join(moods, ",")))
 	defer trace.Stop()
 
-	// TODO: icnrease temperature
-	sText, err := llm.Invoke("You are a professional writer for language learners.", query(level, topics, moods), llm.Gpt5_4)
+	sText, err := llm.Invoke("You are a professional writer for language learners.", query(level, topics, moods), llm.ClaudeSonnet4_6)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate story, llm error: %w", err)
 	}

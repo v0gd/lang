@@ -2,18 +2,21 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"lang/api/osutil"
 	"lang/api/telemetry"
 
+	"github.com/anthropics/anthropic-sdk-go"
+	anthropicopt "github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/invopop/jsonschema"
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/openai/openai-go/v3/shared"
 )
 
-// Set up OpenAI client
 var openaiClient = openai.NewClient(option.WithAPIKey(osutil.MustGetEnv("OPENAI_API_KEY")))
+var anthropicClient = anthropic.NewClient(anthropicopt.WithAPIKey(osutil.MustGetEnv("ANTHROPIC_API_KEY")))
 
 func roleTruncatedForTrace(role string) string {
 	if len(role) > 40 {
@@ -25,9 +28,13 @@ func roleTruncatedForTrace(role string) string {
 type Model string
 
 const (
-	Gpt5_4     Model = "Gpt5_4"
-	Gpt5_4Mini Model = "Gpt5_4Mini"
+	Gpt5_4          Model = "Gpt5_4"
+	Gpt5_4Mini      Model = "Gpt5_4Mini"
+	ClaudeSonnet4_6 Model = "ClaudeSonnet4_6"
+	ClaudeOpus4_6   Model = "ClaudeOpus4_6"
 )
+
+const maxTokens = 8192
 
 func Invoke(role string, content string, model Model) (string, error) {
 	switch model {
@@ -35,6 +42,10 @@ func Invoke(role string, content string, model Model) (string, error) {
 		return invokeGpt(role, content, openai.ChatModelGPT5_4)
 	case Gpt5_4Mini:
 		return invokeGpt(role, content, openai.ChatModelGPT5_4Mini)
+	case ClaudeSonnet4_6:
+		return invokeClaude(role, content, anthropic.ModelClaudeSonnet4_6)
+	case ClaudeOpus4_6:
+		return invokeClaude(role, content, anthropic.ModelClaudeOpus4_6)
 	default:
 		return "", fmt.Errorf("Unknown model")
 	}
@@ -53,11 +64,12 @@ func invokeGpt(role string, content string, model openai.ChatModel) (string, err
 	resp, err := openaiClient.Chat.Completions.New(
 		context.Background(),
 		openai.ChatCompletionNewParams{
-			Model:            model,
-			Messages:         messages,
-			FrequencyPenalty: openai.Float(0.0),
-			PresencePenalty:  openai.Float(0.0),
-			Temperature:      openai.Float(0.0),
+			Model:               model,
+			Messages:            messages,
+			MaxCompletionTokens: openai.Int(maxTokens),
+			FrequencyPenalty:    openai.Float(0.0),
+			PresencePenalty:     openai.Float(0.0),
+			Temperature:         openai.Float(0.0),
 		},
 	)
 	if err != nil {
@@ -77,6 +89,41 @@ func invokeGpt(role string, content string, model openai.ChatModel) (string, err
 	}
 
 	return choice.Message.Content, nil
+}
+
+func invokeClaude(role string, content string, model anthropic.Model) (string, error) {
+	trace := telemetry.NewTrace(fmt.Sprintf("Invoking Claude \"%s\"", roleTruncatedForTrace(role)))
+	defer trace.Stop()
+
+	params := anthropic.MessageNewParams{
+		Model:       model,
+		MaxTokens:   maxTokens,
+		Messages:    []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(content))},
+		Temperature: anthropic.Float(0.0),
+	}
+	if role != "" {
+		params.System = []anthropic.TextBlockParam{{Text: role}}
+	}
+
+	resp, err := anthropicClient.Messages.New(context.Background(), params)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StopReason != anthropic.StopReasonEndTurn {
+		return "", fmt.Errorf("finished with non-end_turn reason: %s", resp.StopReason)
+	}
+
+	for _, block := range resp.Content {
+		if block.Type == "text" {
+			if block.Text == "" {
+				return "", fmt.Errorf("empty response")
+			}
+			return block.Text, nil
+		}
+	}
+
+	return "", fmt.Errorf("no text content in response")
 }
 
 func GenerateSchema[T any]() interface{} {
@@ -114,6 +161,10 @@ func InvokeStructured(role string, content string, schema StructuredOutputSchema
 		return invokeGptStructured(role, content, schema, openai.ChatModelGPT5_4)
 	case Gpt5_4Mini:
 		return invokeGptStructured(role, content, schema, openai.ChatModelGPT5_4Mini)
+	case ClaudeSonnet4_6:
+		return invokeClaudeStructured(role, content, schema, anthropic.ModelClaudeSonnet4_6)
+	case ClaudeOpus4_6:
+		return invokeClaudeStructured(role, content, schema, anthropic.ModelClaudeOpus4_6)
 	default:
 		return "", fmt.Errorf("Unknown model")
 	}
@@ -139,11 +190,12 @@ func invokeGptStructured(role string, content string, schema StructuredOutputSch
 	resp, err := openaiClient.Chat.Completions.New(
 		context.Background(),
 		openai.ChatCompletionNewParams{
-			Model:            model,
-			Messages:         messages,
-			FrequencyPenalty: openai.Float(0.0),
-			PresencePenalty:  openai.Float(0.0),
-			Temperature:      openai.Float(0.0),
+			Model:               model,
+			Messages:            messages,
+			MaxCompletionTokens: openai.Int(maxTokens),
+			FrequencyPenalty:    openai.Float(0.0),
+			PresencePenalty:     openai.Float(0.0),
+			Temperature:         openai.Float(0.0),
 			ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
 				OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{
 					JSONSchema: schemaParam,
@@ -168,6 +220,55 @@ func invokeGptStructured(role string, content string, schema StructuredOutputSch
 	}
 
 	return choice.Message.Content, nil
+}
+
+func invokeClaudeStructured(role string, content string, schema StructuredOutputSchema, model anthropic.Model) (string, error) {
+	trace := telemetry.NewTrace(fmt.Sprintf("Invoking Structured Claude \"%s\" model=%v", roleTruncatedForTrace(role), model))
+	defer trace.Stop()
+
+	schemaBytes, err := json.Marshal(schema.Schema)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal schema: %w", err)
+	}
+	var schemaMap map[string]any
+	if err := json.Unmarshal(schemaBytes, &schemaMap); err != nil {
+		return "", fmt.Errorf("failed to unmarshal schema to map: %w", err)
+	}
+
+	params := anthropic.MessageNewParams{
+		Model:       model,
+		MaxTokens:   maxTokens,
+		Messages:    []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(content))},
+		Temperature: anthropic.Float(0.0),
+		OutputConfig: anthropic.OutputConfigParam{
+			Format: anthropic.JSONOutputFormatParam{
+				Schema: schemaMap,
+			},
+		},
+	}
+	if role != "" {
+		params.System = []anthropic.TextBlockParam{{Text: role}}
+	}
+
+	resp, err := anthropicClient.Messages.New(context.Background(), params)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StopReason != anthropic.StopReasonEndTurn {
+		return "", fmt.Errorf("finished with non-end_turn reason: %s", resp.StopReason)
+	}
+
+	for _, block := range resp.Content {
+		if block.Type == "text" {
+			if block.Text == "" {
+				return "", fmt.Errorf("empty response")
+			}
+			return block.Text, nil
+		}
+	}
+
+	return "", fmt.Errorf("no text content in response")
 }
 
 func Test() {
