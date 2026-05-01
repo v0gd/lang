@@ -162,7 +162,7 @@ function StoryGenerateComponent() {
           setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
           setShowSettingsMenu={() => setShowSettings(true)}
         />
-        <div className="max-w-[650px] pt-4 px-4 pb-10">
+        <div className="w-full max-w-[900px] pt-4 px-4 pb-10">
           <GenerateStoryView l={settings.lLocale} r={settings.rLocale} />
         </div>
       </div>

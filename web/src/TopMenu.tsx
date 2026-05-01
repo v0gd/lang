@@ -26,7 +26,7 @@ export function TopMenu({
 
   return (
     <div className="top-0 left-0 h-[48px] w-full flex justify-center px-4 bg-cream border-b border-border z-50">
-      <div className="w-full max-w-[650px] flex justify-between items-center">
+      <div className="w-full flex justify-between items-center">
         <button
           type="button"
           onClick={() => navigate("/")}
