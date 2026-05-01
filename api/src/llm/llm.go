@@ -69,7 +69,6 @@ func invokeGpt(role string, content string, model openai.ChatModel) (string, err
 			MaxCompletionTokens: openai.Int(maxTokens),
 			FrequencyPenalty:    openai.Float(0.0),
 			PresencePenalty:     openai.Float(0.0),
-			Temperature:         openai.Float(0.0),
 		},
 	)
 	if err != nil {
@@ -99,7 +98,6 @@ func invokeClaude(role string, content string, model anthropic.Model) (string, e
 		Model:       model,
 		MaxTokens:   maxTokens,
 		Messages:    []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(content))},
-		Temperature: anthropic.Float(0.0),
 	}
 	if role != "" {
 		params.System = []anthropic.TextBlockParam{{Text: role}}
@@ -195,7 +193,6 @@ func invokeGptStructured(role string, content string, schema StructuredOutputSch
 			MaxCompletionTokens: openai.Int(maxTokens),
 			FrequencyPenalty:    openai.Float(0.0),
 			PresencePenalty:     openai.Float(0.0),
-			Temperature:         openai.Float(0.0),
 			ResponseFormat: openai.ChatCompletionNewParamsResponseFormatUnion{
 				OfJSONSchema: &shared.ResponseFormatJSONSchemaParam{
 					JSONSchema: schemaParam,
@@ -239,7 +236,6 @@ func invokeClaudeStructured(role string, content string, schema StructuredOutput
 		Model:       model,
 		MaxTokens:   maxTokens,
 		Messages:    []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(content))},
-		Temperature: anthropic.Float(0.0),
 		OutputConfig: anthropic.OutputConfigParam{
 			Format: anthropic.JSONOutputFormatParam{
 				Schema: schemaMap,
