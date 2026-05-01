@@ -41,17 +41,17 @@ const levelCefr: Record<string, string> = {
 };
 
 const moodIcons: Record<string, string> = {
-  romantic: "♥",
+  romantic: "♡",
   dark: "◑",
-  funny: "◉",
+  funny: "◡",
   silly: "✦",
-  scary: "◈",
-  hopeful: "✧",
+  scary: "☾",
+  hopeful: "☼",
   mysterious: "◌",
-  exciting: "▲",
-  charming: "○",
-  thoughtful: "◇",
-  inspiring: "★",
+  exciting: "↗",
+  charming: "✧",
+  thoughtful: "⋯",
+  inspiring: "✶",
   witty: "◆",
 };
 
