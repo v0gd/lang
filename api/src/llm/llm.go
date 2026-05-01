@@ -39,13 +39,13 @@ const maxTokens = 8192
 func Invoke(role string, content string, model Model) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGpt(role, content, openai.ChatModelGPT5_4)
+		return invokeGpt(role, content, openai.ChatModel("gpt-5.5"))
 	case GptMini:
 		return invokeGpt(role, content, openai.ChatModelGPT5_4Mini)
 	case ClaudeSonnet:
 		return invokeClaude(role, content, anthropic.ModelClaudeSonnet4_6)
 	case ClaudeOpus:
-		return invokeClaude(role, content, anthropic.ModelClaudeOpus4_6)
+		return invokeClaude(role, content, anthropic.ModelClaudeOpus4_7)
 	default:
 		return "", fmt.Errorf("Unknown model")
 	}
@@ -158,13 +158,13 @@ type StructuredOutputSchema struct {
 func InvokeStructured(role string, content string, schema StructuredOutputSchema, model Model) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGptStructured(role, content, schema, openai.ChatModelGPT5_4)
+		return invokeGptStructured(role, content, schema, openai.ChatModel("gpt-5.5"))
 	case GptMini:
 		return invokeGptStructured(role, content, schema, openai.ChatModelGPT5_4Mini)
 	case ClaudeSonnet:
 		return invokeClaudeStructured(role, content, schema, anthropic.ModelClaudeSonnet4_6)
 	case ClaudeOpus:
-		return invokeClaudeStructured(role, content, schema, anthropic.ModelClaudeOpus4_6)
+		return invokeClaudeStructured(role, content, schema, anthropic.ModelClaudeOpus4_7)
 	default:
 		return "", fmt.Errorf("Unknown model")
 	}
