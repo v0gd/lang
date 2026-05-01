@@ -8,8 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/http/httputil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -659,15 +657,6 @@ func writeJSON(w http.ResponseWriter, data any) error {
 	return json.NewEncoder(w).Encode(data)
 }
 
-func addFirebaseAuthDevReverseProxy(mux *http.ServeMux) {
-	authProxyTarget, err := url.Parse("https://lang-dev-70b39.firebaseapp.com")
-	if err != nil {
-		panic(fmt.Sprintf("failed to parse auth proxy target URL: %v", err))
-	}
-	authProxy := httputil.NewSingleHostReverseProxy(authProxyTarget)
-	mux.HandleFunc("/__/auth/", wrapCors(authProxy.ServeHTTP))
-}
-
 func Serve() error {
 	CURATED_STORIES, CURATED_STORY_ID_TO_DIR = loadCuratedStories()
 
@@ -683,16 +672,6 @@ func Serve() error {
 	mux.HandleFunc("/cookie-accept", wrap(wrapMustBeMethod("GET", cookieAcceptHandler)))
 	mux.HandleFunc("/", wrap(wrapMustBeMethod("GET", indexHandler)))
 
-	addFirebaseAuthDevReverseProxy(mux)
-
-	if IS_DEV {
-		// We don't use nginx in debug mode, so we need to serve HTTPS ourselves
-		slog.Info("Server is running on https://localhost:5001")
-		certsDir := osutil.MustGetEnv("LANG_API_DEPLOY_CONFIG_DIR")
-		return http.ListenAndServeTLS(":5001", fmt.Sprintf("%s/%s", certsDir, "localhost.crt"), fmt.Sprintf("%s/%s", certsDir, "localhost.key"), mux)
-	} else {
-		// In prod Nginx will handle SSL termination
-		slog.Info("Server is running on http://localhost:5001")
-		return http.ListenAndServe(":5001", mux)
-	}
+	slog.Info("Server is running on http://localhost:5001")
+	return http.ListenAndServe(":5001", mux)
 }

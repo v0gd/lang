@@ -62,9 +62,7 @@ To connect to the server:
 Execute "deploy/db-setup.sql" to setup the DB.
 
 ## To run locally
-1. `cd src && source ../env.sh && go run .`
-2. Open chrome and go to `localhost:5001`, a warning will appear about untrusted cert
-3. Type `thisisunsafe` in chrome to trust the self-issued certificate
+`cd src && source ../env.sh && go run .`
 
 # Deploy (Digital Ocean)
 

@@ -15,8 +15,8 @@ const firebaseConfig =
       }
     : {
         apiKey: "AIzaSyBqHJnZzKGY70a8phfIGs0s0EC_1CSvjr0",
-        // authDomain: "lang-dev-70b39.firebaseapp.com",
-        authDomain: "localhost:5001",
+        authDomain: "lang-dev-70b39.firebaseapp.com",
+        // authDomain: "localhost:5001",
         projectId: "lang-dev-70b39",
         storageBucket: "lang-dev-70b39.firebasestorage.app",
         messagingSenderId: "939289662679",
