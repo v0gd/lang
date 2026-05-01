@@ -34,6 +34,29 @@ export const topics = [
   "movies",
 ] as const;
 
+const levelCefr: Record<string, string> = {
+  A1: "A1–A2",
+  B1: "B1–B2",
+  C1: "C1–C2",
+};
+
+const moodIcons: Record<string, string> = {
+  romantic: "♥",
+  dark: "◑",
+  funny: "◉",
+  silly: "✦",
+  scary: "◈",
+  hopeful: "✧",
+  mysterious: "◌",
+  exciting: "▲",
+  charming: "○",
+  thoughtful: "◇",
+  inspiring: "★",
+  witty: "◆",
+};
+
+const MAX_SELECTIONS = 2;
+
 export function GenerateStoryView({ l, r }: { l: string; r: string }) {
   const [selectedLevel, setSelectedLevel] = useState<string>("");
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
@@ -45,24 +68,18 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
   const generate = useGenerateStoryMutation();
   const loggedIn = useLoggedIn();
 
-  const handleMoodSelect = (mood: string) => {
-    setSelectedMoods((prev) =>
-      prev.includes(mood)
-        ? prev.filter((m) => m !== mood)
-        : prev.length < 2
-          ? [...prev, mood]
-          : prev,
-    );
-  };
-
-  const handleTopicSelect = (topic: string) => {
-    setSelectedTopics((prev) =>
-      prev.includes(topic)
-        ? prev.filter((t) => t !== topic)
-        : prev.length < 2
-          ? [...prev, topic]
-          : prev,
-    );
+  const toggleFromList = (
+    item: string,
+    list: string[],
+    setList: (next: string[]) => void,
+  ) => {
+    if (list.includes(item)) {
+      setList(list.filter((i) => i !== item));
+    } else if (list.length < MAX_SELECTIONS) {
+      setList([...list, item]);
+    } else {
+      setList([...list.slice(1), item]);
+    }
   };
 
   const handleGenerate = async () => {
@@ -70,6 +87,7 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
       navigate("/login");
       return;
     }
+    if (!selectedLevel) return;
     if (!generate.isIdle) return;
     generate.mutate({
       l: l,
@@ -88,73 +106,153 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
 
   const strings = lstr(l);
 
-  const chipBase = "px-4 py-2 rounded-xl border text-sm font-medium transition-colors";
-  const chipSelected = "bg-primary text-white border-primary";
-  const chipUnselected = "bg-surface text-main-text border-border hover:bg-cream-dark";
+  const sectionLabel =
+    "text-xs font-semibold uppercase tracking-[0.2em] leading-none text-secondary-text";
+  const counterActive =
+    "inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold leading-none bg-primary text-white tracking-normal";
+  const counterIdle =
+    "inline-flex h-5 items-center rounded-full px-2 text-[10px] font-semibold leading-none bg-cream-dark text-muted-text tracking-normal";
+  const optionalLabel =
+    "text-[10px] uppercase tracking-[0.18em] leading-none italic text-muted-text";
+
+  const chipBase =
+    "px-4 py-3 rounded-xl border text-xs md:text-sm transition-colors text-center";
+  const chipSelected = "bg-primary text-white border-primary font-medium";
+  const chipUnselected =
+    "bg-surface text-secondary-text border-border font-normal hover:bg-cream-dark";
+  const optionGrid =
+    "grid grid-cols-[repeat(auto-fit,minmax(9.5rem,1fr))] gap-2.5";
+
+  const renderCounter = (count: number) => (
+    <span className={count > 0 ? counterActive : counterIdle}>
+      {count}/{MAX_SELECTIONS}
+    </span>
+  );
+
+  const canGenerate = !loggedIn || (selectedLevel !== "" && generate.isIdle);
 
   return (
-    <div className="flex flex-col gap-8 max-w-xl mx-auto">
-      <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
+    <div className="flex flex-col gap-10">
+      <header>
+        <h1 className="font-literata text-3xl md:text-4xl font-bold tracking-tight text-main-text leading-tight">
+          {strings.generate_title_pre}{" "}
+          <span className="text-primary">
+            {strings.generate_title_post}
+          </span>
+        </h1>
+      </header>
+
+      <section>
+        <h2 className={`${sectionLabel} mb-3`}>
           {strings.generate_level_heading}
         </h2>
-        <div className="flex flex-wrap gap-2">
-          {levels.map((level) => (
-            <button
-              key={level}
-              onClick={() => handleLevelSelect(level)}
-              className={`${chipBase} ${selectedLevel === level ? chipSelected : chipUnselected}`}
-            >
-              {strings.levels[level]}
-            </button>
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+          {levels.map((level) => {
+            const selected = selectedLevel === level;
+            return (
+              <button
+                key={level}
+                type="button"
+                onClick={() => handleLevelSelect(level)}
+                className={`px-4 py-7 rounded-xl border transition-colors text-center ${
+                  selected
+                    ? "border-primary bg-primary-light"
+                    : "border-border bg-surface hover:bg-cream-dark"
+                }`}
+              >
+                <div
+                  className={`font-literata text-base md:text-lg font-bold ${
+                    selected ? "text-main-text" : "text-secondary-text"
+                  }`}
+                >
+                  {strings.levels[level]}
+                </div>
+                <div className="text-sm text-secondary-text mt-1">
+                  {levelCefr[level]}
+                </div>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </section>
 
-      <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
-          {strings.generate_mood_heading}
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {moods.map((mood) => (
-            <button
-              key={mood}
-              onClick={() => handleMoodSelect(mood)}
-              className={`${chipBase} ${selectedMoods.includes(mood) ? chipSelected : chipUnselected}`}
-            >
-              {strings.moods[mood]}
-            </button>
-          ))}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className={sectionLabel}>{strings.generate_mood_heading}</h2>
+          {renderCounter(selectedMoods.length)}
+          <span className={optionalLabel}>
+            {strings.generate_topic_optional}
+          </span>
         </div>
-      </div>
+        <div className={optionGrid}>
+          {moods.map((mood) => {
+            const selected = selectedMoods.includes(mood);
+            return (
+              <button
+                key={mood}
+                type="button"
+                onClick={() =>
+                  toggleFromList(mood, selectedMoods, setSelectedMoods)
+                }
+                className={`${chipBase} ${selected ? chipSelected : chipUnselected} flex items-center justify-center gap-2`}
+              >
+                <span
+                  aria-hidden
+                  className="text-base leading-none text-current opacity-80"
+                >
+                  {moodIcons[mood]}
+                </span>
+                <span>{strings.moods[mood]}</span>
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
-      <div>
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-secondary-text mb-3">
-          {strings.generate_topic_heading}
-        </h2>
-        <div className="flex flex-wrap gap-2">
-          {topics.map((topic) => (
-            <button
-              key={topic}
-              onClick={() => handleTopicSelect(topic)}
-              className={`${chipBase} ${selectedTopics.includes(topic) ? chipSelected : chipUnselected}`}
-            >
-              {strings.topics[topic]}
-            </button>
-          ))}
+      <section>
+        <div className="flex items-center gap-2 mb-3">
+          <h2 className={sectionLabel}>{strings.generate_topic_heading}</h2>
+          {renderCounter(selectedTopics.length)}
+          <span className={optionalLabel}>
+            {strings.generate_topic_optional}
+          </span>
         </div>
-      </div>
+        <div className={optionGrid}>
+          {topics.map((topic) => {
+            const selected = selectedTopics.includes(topic);
+            return (
+              <button
+                key={topic}
+                type="button"
+                onClick={() =>
+                  toggleFromList(topic, selectedTopics, setSelectedTopics)
+                }
+                className={`${chipBase} ${selected ? chipSelected : chipUnselected}`}
+              >
+                {strings.topics[topic]}
+              </button>
+            );
+          })}
+        </div>
+      </section>
 
       <button
         type="button"
         onClick={handleGenerate}
-        className="w-full py-3 rounded-xl bg-primary text-white font-semibold transition-colors hover:bg-primary-hover disabled:opacity-50"
-        disabled={loggedIn && !generate.isIdle}
+        className="w-full py-4 rounded-xl bg-primary text-white text-lg font-bold transition-colors hover:bg-primary-hover disabled:opacity-50"
+        disabled={!canGenerate}
       >
         {!loggedIn && strings.generate_login_prompt}
-        {loggedIn && generate.isIdle && strings.generate_button}
+        {loggedIn && generate.isIdle && selectedLevel && strings.generate_button}
+        {loggedIn &&
+          generate.isIdle &&
+          !selectedLevel &&
+          strings.generate_level_required}
         {loggedIn && generate.isError && strings.generate_error}
-        {loggedIn && !generate.isIdle && !generate.isError && strings.generate_in_progress}
+        {loggedIn &&
+          !generate.isIdle &&
+          !generate.isError &&
+          strings.generate_in_progress}
       </button>
     </div>
   );
