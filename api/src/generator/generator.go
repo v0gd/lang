@@ -171,7 +171,7 @@ func convertTranslatedStoryToStructured(sl string, sr string) (StoryWithTranslat
 				"extract the title, paragraphs and sentences with the corresponding translations:\n\n"+
 				"%s\n\nTranslation:\n\n%s", sl, sr),
 		storyWithTranslationSchema,
-		llm.Gpt5_4Mini)
+		llm.GptMini)
 	if err != nil {
 		return StoryWithTranslation{}, fmt.Errorf("failed to break the story into sentences, llm error: %w", err)
 	}
@@ -190,7 +190,7 @@ func generateStory(level string, topics []string, moods []string) (string, error
 		fmt.Sprintf("Generating a story %s: %s - %s", level, strings.Join(topics, ","), strings.Join(moods, ",")))
 	defer trace.Stop()
 
-	sText, err := llm.Invoke("You are a professional writer for language learners.", query(level, topics, moods), llm.ClaudeSonnet4_6)
+	sText, err := llm.Invoke("You are a professional writer for language learners.", query(level, topics, moods), llm.ClaudeSonnet)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate story, llm error: %w", err)
 	}
@@ -219,7 +219,7 @@ func translateStory(l string, r string, s string) (string, error) {
 				"You try to translate text as close to the original as possible (the students will compare texts word by word), "+
 				"while it should sound absolutely natural in the target language.", rLang),
 		fmt.Sprintf("Translate the following text to %s:\n\n%s", rLang, s),
-		llm.Gpt5_4)
+		llm.Gpt)
 }
 
 func logIfError(msg string, err error) {

@@ -230,7 +230,7 @@ func generateSentence(
 	eId SentenceExplanationId, lSentence, rSentence string,
 ) (SentenceExplanation, error) {
 	response, err := llm.Invoke(
-		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, lSentence, eId.R, rSentence), llm.Gpt5_4)
+		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, lSentence, eId.R, rSentence), llm.Gpt)
 	if err != nil {
 		return SentenceExplanation{}, err
 	}
@@ -313,7 +313,11 @@ func ExtractWord(sentenceText string, wordIdx int) (string, error) {
 
 func wordLlmRole(l, r string) string {
 	return fmt.Sprintf(
-		`You are a concise %s language teacher for %s speakers. You explain individual words in context. Always respond in %s. Give a brief explanation: translation, part of speech, and any relevant grammar notes (gender, case, conjugation). Keep it to 1-3 short sentences. Do NOT use HTML formatting, respond in plain text only.`,
+		`You are a concise %s language teacher for %s speakers. You explain individual words in context. Always respond in %s.
+
+Give a brief explanation: translation and part of speech. Add grammar notes only when they clarify this specific word in this specific sentence, such as a noun's gender/case, a verb form, or an idiomatic usage. Do not add generic "not applicable" grammar disclaimers, for example do not say that an interjection/adverb/particle has no gender, case, or normal forms.
+
+Keep it to 1-3 short sentences. Do NOT use HTML formatting, respond in plain text only.`,
 		LANGUAGES_EN[r],
 		LANGUAGES_EN[l],
 		LANGUAGES_EN[l],
@@ -361,7 +365,7 @@ func loadWord(wId WordExplanationId) (WordExplanation, error) {
 
 func generateWord(wId WordExplanationId, word, lSentence, rSentence string) (WordExplanation, error) {
 	response, err := llm.Invoke(
-		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, lSentence), llm.Gpt5_4Mini)
+		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, lSentence), llm.GptMini)
 	if err != nil {
 		return WordExplanation{}, err
 	}
