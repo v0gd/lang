@@ -20,7 +20,7 @@ Deployed at [parread.com](https://parread.com).
 
 ### [videos/](videos/) — Video Generation
 
-Python scripts for generating parallel listening videos for language learners. Produces narrated, subtitled videos that are uploaded to YouTube.
+Tools for generating parallel listening videos for language learners. Produces narrated, subtitled videos that are then uploaded to YouTube.
 
 ## Deployment
 

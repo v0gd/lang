@@ -2,7 +2,6 @@ export AWS_POLLY_ACCESS_KEY_ID=***
 export AWS_POLLY_SECRET_ACCESS_KEY=***
 export ANTHROPIC_API_KEY=***
 export OPENAI_API_KEY=***
-export ANTHROPIC_API_KEY=***
 export GOOGLE_APPLICATION_CREDENTIALS=/Users/bamboo/repos/lang/api/google-service-acc.json
 export LANG_API_CACHE_DIR=/Users/bamboo/repos/lang/api/cache
 export LANG_API_CURATED_STORIES_DIR=/Users/bamboo/repos/lang/api/stories
