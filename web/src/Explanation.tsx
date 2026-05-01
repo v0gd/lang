@@ -134,7 +134,7 @@ export function WordExplanationPopup({
   return (
     <div
       ref={popupRef}
-      className="absolute -left-4 z-50 bg-surface rounded-xl shadow-xl border border-border px-5 py-4"
+      className="absolute -left-4 z-50 bg-surface rounded-xl shadow-xl border border-border px-5 py-4 select-text cursor-text"
       style={{
         ...(above
           ? { bottom: "100%", marginBottom: 5 }
@@ -142,6 +142,7 @@ export function WordExplanationPopup({
         transform: shiftX ? `translateX(${shiftX}px)` : undefined,
         width: "min(24rem, calc(100vw - 1rem))",
       }}
+      onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
       {query.isPending && (
@@ -172,7 +173,7 @@ export function WordExplanationPopup({
         <p className="text-red-600 text-sm">{lstr(l).loading_explain_error}</p>
       )}
       {query.isSuccess && (
-        <p className="text-sm text-main-text leading-relaxed">
+        <p className="text-sm text-main-text leading-relaxed select-text">
           {query.data}
         </p>
       )}
