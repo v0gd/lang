@@ -51,16 +51,29 @@ function SettingsMenu({
                   settings.theme === Theme.Dark ? Theme.Light : Theme.Dark,
               })
             }
-            className="flex items-center gap-2 border border-border rounded-lg px-3 py-2 bg-surface text-main-text text-sm transition-colors hover:bg-cream-dark"
+            className="flex overflow-hidden border border-border rounded-lg bg-surface text-sm transition-colors hover:bg-cream-dark"
           >
-            {settings.theme === Theme.Dark ? (
-              <HiMoon className="text-base" />
-            ) : (
+            <span
+              className={`flex items-center gap-1.5 px-3 py-2 transition-colors ${
+                settings.theme === Theme.Light
+                  ? "bg-primary-light text-primary font-medium"
+                  : "text-secondary-text"
+              }`}
+            >
               <HiSun className="text-base" />
-            )}
-            {settings.theme === Theme.Dark
-              ? lstr(settings.lLocale).settings_theme_dark
-              : lstr(settings.lLocale).settings_theme_light}
+              {lstr(settings.lLocale).settings_theme_light}
+            </span>
+            <span className="w-px bg-border" aria-hidden />
+            <span
+              className={`flex items-center gap-1.5 px-3 py-2 transition-colors ${
+                settings.theme === Theme.Dark
+                  ? "bg-primary-light text-primary font-medium"
+                  : "text-secondary-text"
+              }`}
+            >
+              <HiMoon className="text-base" />
+              {lstr(settings.lLocale).settings_theme_dark}
+            </span>
           </button>
         </div>
       </div>
