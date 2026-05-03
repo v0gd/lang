@@ -331,23 +331,15 @@ func convertStoryToDict(st story.StoryMultilingual, l, r string) map[string]any 
 		return out
 	}
 
+	localizations := map[string]any{}
+	localizations[r] = convertLocalization(st.Localizations[r])
+	if lStory, ok := st.Localizations[l]; ok && l != "" {
+		localizations[l] = convertLocalization(lStory)
+	}
 	return map[string]any{
-		"id": st.Id,
-		"localizations": map[string]any{
-			l: convertLocalization(st.Localizations[l]),
-			r: convertLocalization(st.Localizations[r]),
-		},
+		"id":            st.Id,
+		"localizations": localizations,
 	}
-}
-
-func checkStoryHasLocalization(st story.StoryMultilingual, l, r string) error {
-	if _, ok := st.Localizations[l]; !ok {
-		return newHTTPError(http.StatusNotFound, "Story not available in '%s'", l)
-	}
-	if _, ok := st.Localizations[r]; !ok {
-		return newHTTPError(http.StatusNotFound, "Story not available in '%s'", r)
-	}
-	return nil
 }
 
 // --- Handlers ---
@@ -359,21 +351,21 @@ func getStoryListHandler(w http.ResponseWriter, req *http.Request) error {
 	}
 	var results []story.StoryDescriptor
 	for _, st := range CURATED_STORIES {
-		sl, ok := st.Localizations[l]
-		if !ok {
-			continue
-		}
 		sr, ok := st.Localizations[r]
 		if !ok {
 			continue
 		}
-
-		results = append(results, story.StoryDescriptor{
+		desc := story.StoryDescriptor{
 			Id:      st.Id,
 			Level:   st.Level,
-			Locales: []string{l, r},
-			Titles:  []string{sl.Title, sr.Title},
-		})
+			Locales: []string{r},
+			Titles:  []string{sr.Title},
+		}
+		if sl, ok := st.Localizations[l]; ok {
+			desc.Locales = []string{l, r}
+			desc.Titles = []string{sl.Title, sr.Title}
+		}
+		results = append(results, desc)
 	}
 	return writeJSON(w, results)
 }
@@ -387,49 +379,19 @@ func getStoryHandler(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-
-	if strings.HasPrefix(storyId, "g_") {
-		st, err := generator.Get(storyId)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return newHTTPError(http.StatusNotFound, "Story not found")
-			} else {
-				return err
-			}
-		}
-		if len(st.Localizations) != 2 {
-			// TODO: generate an alert here
-			return newHTTPError(http.StatusNotFound, "Story not available in 2 locales")
-		}
-		// Get first 2 keys in st.Localizations map
-		var l, r string
-		for k := range st.Localizations {
-			if l == "" {
-				l = k
-			} else {
-				r = k
-				break
-			}
-		}
-		dict := convertStoryToDict(st, l, r)
-		return writeJSON(w, dict)
-	} else {
-		l, r, err := mustExtractLocalePair(req)
-		if err != nil {
-			return err
-		}
-		st, err := findStory(storyId)
-		if err != nil {
-			return err
-		}
-		err = checkStoryHasLocalization(st, l, r)
-		if err != nil {
-			return err
-		}
-		dict := convertStoryToDict(st, l, r)
-		return writeJSON(w, dict)
+	l, r, err := mustExtractLocalePair(req)
+	if err != nil {
+		return err
 	}
-
+	st, err := findStory(storyId)
+	if err != nil {
+		return err
+	}
+	if _, ok := st.Localizations[r]; !ok {
+		return newHTTPError(http.StatusNotFound, "Story not available in '%s'", r)
+	}
+	dict := convertStoryToDict(st, l, r)
+	return writeJSON(w, dict)
 }
 
 func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
@@ -445,9 +407,6 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if _, ok := st.Localizations[l]; !ok {
-		return newHTTPError(http.StatusNotFound, "Story not available in '%s'", l)
-	}
 	if _, ok := st.Localizations[r]; !ok {
 		return newHTTPError(http.StatusNotFound, "Story not available in '%s'", r)
 	}
@@ -459,9 +418,9 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	lSentence, err := findSentence(st, l, lIdx)
+	maybeLSentence, err := findSentence(st, l, lIdx)
 	if err != nil {
-		return err
+		// L sentence is optional.
 	}
 	rSentence, err := findSentence(st, r, rIdx)
 	if err != nil {
@@ -477,7 +436,7 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 			LSentenceIdx: lIdx,
 			RSentenceIdx: rIdx,
 		}
-		expl, eErr := explanation.GetSentence(eId, lSentence.ToPlainStr(), rSentence.ToPlainStr())
+		expl, eErr := explanation.GetSentence(eId, maybeLSentence.ToPlainStr(), rSentence.ToPlainStr())
 		if eErr != nil {
 			return fmt.Errorf("explanation.GetSentence error: %w", eErr)
 		}
@@ -495,7 +454,7 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 			RSentenceIdx: rIdx,
 			WordIdx:      wordIdx,
 		}
-		expl, eErr := explanation.GetWord(wId, lSentence.ToPlainStr(), rSentence.ToPlainStr())
+		expl, eErr := explanation.GetWord(wId, maybeLSentence.ToPlainStr(), rSentence.ToPlainStr())
 		if eErr != nil {
 			return fmt.Errorf("explanation.GetWord error: %w", eErr)
 		}
@@ -603,9 +562,8 @@ func generateStoryHandler(w http.ResponseWriter, req *http.Request, uid string) 
 	if err != nil {
 		return fmt.Errorf("story.Generate error: %w", err)
 	}
-	err = checkStoryHasLocalization(s, l, r)
-	if err != nil {
-		panic(err)
+	if _, ok := s.Localizations[r]; !ok {
+		return newHTTPError(http.StatusNotFound, "Story not available in '%s'", r)
 	}
 	dict := convertStoryToDict(s, l, r)
 	return writeJSON(w, dict)

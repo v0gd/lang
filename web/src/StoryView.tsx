@@ -350,20 +350,22 @@ function StoryView({
     );
   }
 
-  if (storyId.startsWith("g_")) {
-    let locales = Array.from(query.data.localizations.keys());
-    if (locales.includes(l)) {
-      r = locales[0] == l ? locales[1] : locales[0];
-    } else if (locales.includes(r)) {
-      l = locales[0] == r ? locales[1] : locales[0];
-    } else {
-      l = locales[0];
-      r = locales[1];
-    }
+  const rStory = query.data.localizations.get(r);
+  if (!rStory) {
+    console.error("Story is missing the learned-language localization");
+    return (
+      <div className="w-full p-4 overflow-auto font-semibold text-xl text-main-text">
+        {lstr(l).story_not_found_error}
+      </div>
+    );
   }
 
-  const lStory = query.data.localizations.get(l)!;
-  const rStory = query.data.localizations.get(r)!;
+  // The L localization is optional. When absent, we render
+  // r-only and disable the translation layer.
+  var lStory = query.data.localizations.get(l);
+  const hasLStory = lStory !== undefined;
+  lStory = lStory ?? rStory;
+  const effectiveShowTranslation = shouldShowTranslation && hasLStory;
 
   if (lStory.chapters.length !== rStory.chapters.length) {
     console.error("Story paragraphs are not aligned");
@@ -377,7 +379,7 @@ function StoryView({
       <div>
         <Image storyId={storyId} imageId={rStory.imageId} />
         <h1 className="text-2xl font-bold text-center text-main-text">{rStory.title}</h1>
-        {shouldShowTranslation && (
+        {effectiveShowTranslation && (
           <h1 className="text-xl font-medium text-secondary-text text-center mt-1">
             {lStory.title}
           </h1>
@@ -390,9 +392,9 @@ function StoryView({
                 storyId={storyId}
                 l={l}
                 r={r}
-                lChapter={lStory.chapters[index]}
+                lChapter={lStory!.chapters[index]}
                 rChapter={chapter}
-                shouldShowTranslation={shouldShowTranslation}
+                shouldShowTranslation={effectiveShowTranslation}
                 showTranslationBySentence={showTranslationBySentence}
               />
             ))}

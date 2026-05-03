@@ -11,12 +11,12 @@ import { User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 
 export function TopMenu({
-  displayingStory,
+  showTranslationControls,
   settings,
   setSettings,
   setShowSettingsMenu,
 }: {
-  displayingStory: boolean;
+  showTranslationControls: boolean;
   settings: Settings;
   setSettings: (value: Settings) => void;
   setShowSettingsMenu: () => void;
@@ -34,7 +34,7 @@ export function TopMenu({
         >
           <span className="text-lg tracking-tight">Polypup</span>
         </button>
-        {displayingStory && (
+        {showTranslationControls && (
           <div className="flex flex-grow justify-center items-center">
             <div className="flex flex-col gap-0.5">
               <ShowTranslationCheckbox

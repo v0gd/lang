@@ -119,8 +119,17 @@ Expected output:
 	)
 }
 
-func sentenceLlmQueryContent(l, lSentence, r, rSentence string) string {
+func sentenceLlmQueryContent(l, maybeLSentence, r, rSentence string) string {
+	maybeLSentence = strings.TrimSpace(maybeLSentence)
+
 	if l == "en" {
+		if maybeLSentence == "" {
+			return fmt.Sprintf(`Explain part by part the following %s sentence for English speakers:
+
+"%s"
+`, LANGUAGES_EN[r], rSentence)
+		}
+
 		return fmt.Sprintf(`Explain part by part the following translation from %s to English:
 
 "%s"
@@ -128,10 +137,17 @@ func sentenceLlmQueryContent(l, lSentence, r, rSentence string) string {
 in %s:
 
 "%s"
-`, LANGUAGES_EN[r], rSentence, LANGUAGES_EN[r], lSentence)
+`, LANGUAGES_EN[r], rSentence, LANGUAGES_EN[r], maybeLSentence)
 	}
 
 	if l == "ru" {
+		if maybeLSentence == "" {
+			return fmt.Sprintf(`Объясни по частям следующее предложение на %s языке для русскоязычных:
+
+"%s"
+`, LANGUAGES_RU[r], rSentence)
+		}
+
 		return fmt.Sprintf(`Объясни по частям следующий перевод с %s на русский язык:
 
 "%s"
@@ -139,10 +155,17 @@ in %s:
 %s перевод:
 
 "%s"
-`, LANGUAGES_RU[r], rSentence, LANGUAGES_RU[r], lSentence)
+`, LANGUAGES_RU[r], rSentence, LANGUAGES_RU[r], maybeLSentence)
 	}
 
 	if l == "de" {
+		if maybeLSentence == "" {
+			return fmt.Sprintf(`Erkläre in Teilen den folgenden %s Satz für Deutschsprachige:
+
+"%s"
+`, LANGUAGES_DE[r], rSentence)
+		}
+
 		return fmt.Sprintf(`Erkläre in Teilen die folgende Übersetzung von %s ins Deutsch:
 
 "%s"
@@ -150,7 +173,7 @@ in %s:
 auf %s:
 
 "%s"
-`, LANGUAGES_DE[r], rSentence, LANGUAGES_DE[r], lSentence)
+`, LANGUAGES_DE[r], rSentence, LANGUAGES_DE[r], maybeLSentence)
 	}
 
 	panic(fmt.Sprintf("Unknown language %s", l))
@@ -227,10 +250,10 @@ func loadSentence(eId SentenceExplanationId) (SentenceExplanation, error) {
 }
 
 func generateSentence(
-	eId SentenceExplanationId, lSentence, rSentence string,
+	eId SentenceExplanationId, maybeLSentence, rSentence string,
 ) (SentenceExplanation, error) {
 	response, err := llm.Invoke(
-		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, lSentence, eId.R, rSentence), llm.Gpt)
+		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, maybeLSentence, eId.R, rSentence), llm.Gpt)
 	if err != nil {
 		return SentenceExplanation{}, err
 	}
@@ -242,7 +265,7 @@ func generateSentence(
 	}, nil
 }
 
-func GetSentence(eId SentenceExplanationId, lSentence string, rSentence string) (SentenceExplanation, error) {
+func GetSentence(eId SentenceExplanationId, maybeLSentence string, rSentence string) (SentenceExplanation, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Getting sentence explanation %s", eId.String()))
 	defer trace.Stop()
 
@@ -255,7 +278,7 @@ func GetSentence(eId SentenceExplanationId, lSentence string, rSentence string) 
 		return SentenceExplanation{}, fmt.Errorf("failed to load sentence explanation from db: %w", err)
 	}
 
-	e, err = generateSentence(eId, lSentence, rSentence)
+	e, err = generateSentence(eId, maybeLSentence, rSentence)
 	if err != nil {
 		return SentenceExplanation{}, fmt.Errorf("failed to generate sentence explanation: %w", err)
 	}
@@ -324,23 +347,40 @@ Keep it to 1-3 short sentences. Do NOT use HTML formatting, respond in plain tex
 	)
 }
 
-func wordLlmQueryContent(l, r, word, rSentence, lSentence string) string {
+func wordLlmQueryContent(l, r, word, rSentence, maybeLSentence string) string {
+	maybeLSentence = strings.TrimSpace(maybeLSentence)
+
 	if l == "en" {
+		if maybeLSentence == "" {
+			return fmt.Sprintf(`Explain the word "%s" in the following %s sentence:
+"%s"`, word, LANGUAGES_EN[r], rSentence)
+		}
+
 		return fmt.Sprintf(`Explain the word "%s" in the following %s sentence:
 "%s"
-Translation: "%s"`, word, LANGUAGES_EN[r], rSentence, lSentence)
+Translation: "%s"`, word, LANGUAGES_EN[r], rSentence, maybeLSentence)
 	}
 
 	if l == "ru" {
+		if maybeLSentence == "" {
+			return fmt.Sprintf(`Объясни слово "%s" в следующем предложении на %s языке:
+"%s"`, word, LANGUAGES_RU[r], rSentence)
+		}
+
 		return fmt.Sprintf(`Объясни слово "%s" в следующем предложении на %s языке:
 "%s"
-Перевод: "%s"`, word, LANGUAGES_RU[r], rSentence, lSentence)
+Перевод: "%s"`, word, LANGUAGES_RU[r], rSentence, maybeLSentence)
 	}
 
 	if l == "de" {
+		if maybeLSentence == "" {
+			return fmt.Sprintf(`Erkläre das Wort "%s" im folgenden %s Satz:
+"%s"`, word, LANGUAGES_DE[r], rSentence)
+		}
+
 		return fmt.Sprintf(`Erkläre das Wort "%s" im folgenden %s Satz:
 "%s"
-Übersetzung: "%s"`, word, LANGUAGES_DE[r], rSentence, lSentence)
+Übersetzung: "%s"`, word, LANGUAGES_DE[r], rSentence, maybeLSentence)
 	}
 
 	panic(fmt.Sprintf("Unknown language %s", l))
@@ -363,16 +403,16 @@ func loadWord(wId WordExplanationId) (WordExplanation, error) {
 	return WordExplanation{Content: content}, nil
 }
 
-func generateWord(wId WordExplanationId, word, lSentence, rSentence string) (WordExplanation, error) {
+func generateWord(wId WordExplanationId, word, maybeLSentence, rSentence string) (WordExplanation, error) {
 	response, err := llm.Invoke(
-		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, lSentence), llm.GptMini)
+		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, maybeLSentence), llm.GptMini)
 	if err != nil {
 		return WordExplanation{}, err
 	}
 	return WordExplanation{Content: strings.TrimSpace(response)}, nil
 }
 
-func GetWord(wId WordExplanationId, lSentence string, rSentence string) (WordExplanation, error) {
+func GetWord(wId WordExplanationId, maybeLSentence string, rSentence string) (WordExplanation, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Getting word explanation %s", wId.String()))
 	defer trace.Stop()
 
@@ -390,7 +430,7 @@ func GetWord(wId WordExplanationId, lSentence string, rSentence string) (WordExp
 		return WordExplanation{}, fmt.Errorf("failed to extract word: %w", err)
 	}
 
-	e, err = generateWord(wId, word, lSentence, rSentence)
+	e, err = generateWord(wId, word, maybeLSentence, rSentence)
 	if err != nil {
 		return WordExplanation{}, fmt.Errorf("failed to generate word explanation: %w", err)
 	}

@@ -117,6 +117,8 @@ export function useGenerateStoryMutation() {
       moods,
       topics,
     }: {
+      // l is the optional mother-tongue locale; omit it (empty string) to
+      // generate a story only in the learned language.
       l: string;
       r: string;
       level: string;
@@ -127,7 +129,9 @@ export function useGenerateStoryMutation() {
       const topicStr = topics.join(",");
 
       let url = new URL(`${API_URL}/generate`);
-      url.searchParams.append("l", l);
+      if (l) {
+        url.searchParams.append("l", l);
+      }
       url.searchParams.append("r", r);
       url.searchParams.append("level", level);
       url.searchParams.append("moods", moodStr);

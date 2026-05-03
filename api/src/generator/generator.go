@@ -40,7 +40,7 @@ func Setup() {
 	}
 	loadListStmt, err = db.Db.Prepare(
 		"SELECT id, language_level, locales, titles FROM story " +
-			"WHERE author_id = ? AND deleted = 0 AND FIND_IN_SET(?, locales) AND FIND_IN_SET(?, locales);")
+			"WHERE author_id = ? AND deleted = 0 AND FIND_IN_SET(?, locales);")
 	if err != nil {
 		panic(err)
 	}
@@ -143,7 +143,7 @@ func toStorySentences(sentences []SentenceWithTranslation, extractor extractSent
 	return storySentences
 }
 
-func toStoryParagraphs(storyStructured StoryWithTranslation, extractor extractSentence) []story.Paragraph {
+func toStoryParagraphsFromBilingual(storyStructured StoryWithTranslation, extractor extractSentence) []story.Paragraph {
 	paragraphs := make([]story.Paragraph, len(storyStructured.Paragraphs))
 	for i, p := range storyStructured.Paragraphs {
 		paragraphs[i] = story.Paragraph{
@@ -163,7 +163,7 @@ var storyWithTranslationSchema = llm.StructuredOutputSchema{
 	Description: "a story in structured format with translation",
 }
 
-func convertTranslatedStoryToStructured(sl string, sr string) (StoryWithTranslation, error) {
+func convertBilingualStoryToStructured(sl string, sr string) (StoryWithTranslation, error) {
 	sJson, err := llm.InvokeStructured(
 		"",
 		fmt.Sprintf(
@@ -185,7 +185,47 @@ func convertTranslatedStoryToStructured(sl string, sr string) (StoryWithTranslat
 	return structured, nil
 }
 
-func generateStory(level string, topics []string, moods []string) (string, error) {
+var storySchema = llm.StructuredOutputSchema{
+	Schema:      llm.GenerateSchema[Story](),
+	Name:        "story",
+	Description: "a story in structured format",
+}
+
+func convertMonolingualStoryToStructured(s string) (Story, error) {
+	sJson, err := llm.InvokeStructured(
+		"",
+		fmt.Sprintf(
+			"Given the following text, extract the title, paragraphs and sentences:\n\n%s", s),
+		storySchema,
+		llm.GptMini)
+	if err != nil {
+		return Story{}, fmt.Errorf("failed to break the story into sentences, llm error: %w", err)
+	}
+
+	structured := Story{}
+	err = json.Unmarshal([]byte(sJson), &structured)
+	if err != nil {
+		return Story{}, fmt.Errorf("failed to unmarshal story: %w", err)
+	}
+
+	return structured, nil
+}
+
+func toStoryParagraphsFromMonolingual(s Story) []story.Paragraph {
+	paragraphs := make([]story.Paragraph, len(s.Paragraphs))
+	for i, p := range s.Paragraphs {
+		sentences := make([]story.Sentence, len(p.Sentences))
+		for j, sentence := range p.Sentences {
+			sentences[j] = story.ParseSentence(sentence)
+		}
+		paragraphs[i] = story.Paragraph{
+			Scenes: []story.Scene{{Sentences: sentences}},
+		}
+	}
+	return paragraphs
+}
+
+func generateStoryInEnglish(level string, topics []string, moods []string) (string, error) {
 	trace := telemetry.NewTrace(
 		fmt.Sprintf("Generating a story %s: %s - %s", level, strings.Join(topics, ","), strings.Join(moods, ",")))
 	defer trace.Stop()
@@ -216,7 +256,7 @@ func translateStory(l string, r string, s string) (string, error) {
 	return llm.Invoke(
 		fmt.Sprintf(
 			"You are a professional translator for language learners and native %s speaker. "+
-				"You try to translate text as close to the original as possible (the students will compare texts word by word), "+
+				"You try to translate text as close to the original as possible, "+
 				"while it should sound absolutely natural in the target language.", rLang),
 		fmt.Sprintf("Translate the following text to %s:\n\n%s", rLang, s),
 		llm.Gpt)
@@ -234,15 +274,22 @@ func datetime() string {
 }
 
 type InputParameters struct {
-	Level  story.Level  `json:"level"`
-	L      story.Locale `json:"l"`
+	Level story.Level `json:"level"`
+	// L is the optional mother-tongue locale. An empty value signals that the
+	// story should be generated only in the learned language (R), without a
+	// mother-tongue translation.
+	L      story.Locale `json:"l,omitempty"`
 	R      story.Locale `json:"r"`
 	Topics []string     `json:"topics"`
 	Moods  []string     `json:"mood"`
 }
 
-func List(authorId string, l story.Locale, r story.Locale) ([]story.StoryDescriptor, error) {
-	rows, err := loadListStmt.Query(authorId, l, r)
+// List returns stories that contain the learned-language locale (r). The
+// mother-tongue (l) is accepted for symmetry with the read API but does not
+// constrain the result, since a story may legitimately ship without an l
+// localization.
+func List(authorId string, _ story.Locale, r story.Locale) ([]story.StoryDescriptor, error) {
+	rows, err := loadListStmt.Query(authorId, r)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load list of stories from db: %w", err)
 	}
@@ -396,8 +443,12 @@ func eraseNewlines(s string) string {
 }
 
 func Generate(params InputParameters, authorId string) (story.StoryMultilingual, error) {
+	traceL := params.L
+	if traceL == "" {
+		traceL = "-"
+	}
 	trace := telemetry.NewTrace(fmt.Sprintf("Generating a story %s->%s %s: %s - %s",
-		params.L, params.R, params.Level,
+		traceL, params.R, params.Level,
 		strings.Join(params.Topics, ","), strings.Join(params.Moods, ",")))
 	defer trace.Stop()
 
@@ -418,7 +469,7 @@ func Generate(params InputParameters, authorId string) (story.StoryMultilingual,
 	err = cache.WriteFileString(dirPath+"/query.txt", query(params.Level, params.Topics, params.Moods))
 	logIfError("failed to write query", err)
 
-	sEn, err := generateStory(params.Level, params.Topics, params.Moods)
+	sEn, err := generateStoryInEnglish(params.Level, params.Topics, params.Moods)
 	if err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("failed to generate story: %w", err)
 	}
@@ -426,7 +477,21 @@ func Generate(params InputParameters, authorId string) (story.StoryMultilingual,
 	err = cache.WriteFileString(dirPath+"/story_en.txt", sEn)
 	logIfError("failed to write story en", err)
 
+	if params.L != "" {
+		return translateAndConvertBilingualToStructured(params, authorId, storyId, dirPath, sEn)
+	}
+	return translateAndConvertMonolingualToStructured(params, authorId, storyId, dirPath, sEn)
+}
+
+func translateAndConvertBilingualToStructured(
+	params InputParameters,
+	authorId string,
+	storyId string,
+	dirPath string,
+	sEn string,
+) (story.StoryMultilingual, error) {
 	sL := sEn
+	var err error
 	if params.L != "en" {
 		sL, err = translateStory("en", params.L, sEn)
 		if err != nil {
@@ -448,7 +513,7 @@ func Generate(params InputParameters, authorId string) (story.StoryMultilingual,
 	}
 
 	// TODO: add translation validation (sentence count, etc.)
-	sSt, err := convertTranslatedStoryToStructured(sL, sR)
+	sSt, err := convertBilingualStoryToStructured(sL, sR)
 	if err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("failed to convert translated story to structured: %w", err)
 	}
@@ -461,7 +526,7 @@ func Generate(params InputParameters, authorId string) (story.StoryMultilingual,
 				Title: eraseNewlines(sSt.OriginalTitle),
 				Chapters: []story.Chapter{
 					{
-						Paragraphs: toStoryParagraphs(sSt, func(s SentenceWithTranslation) string { return s.Original }),
+						Paragraphs: toStoryParagraphsFromBilingual(sSt, func(s SentenceWithTranslation) string { return s.Original }),
 					},
 				},
 			},
@@ -469,8 +534,50 @@ func Generate(params InputParameters, authorId string) (story.StoryMultilingual,
 				Title: eraseNewlines(sSt.TranslatedTitle),
 				Chapters: []story.Chapter{
 					{
-						Paragraphs: toStoryParagraphs(sSt, func(s SentenceWithTranslation) string { return s.Translated }),
+						Paragraphs: toStoryParagraphsFromBilingual(sSt, func(s SentenceWithTranslation) string { return s.Translated }),
 					},
+				},
+			},
+		},
+	}
+
+	story.CalculateSentenceAndSegmentIndices(&sMult)
+	err = store(sMult, params, authorId)
+	return sMult, err
+}
+
+func translateAndConvertMonolingualToStructured(
+	params InputParameters,
+	authorId string,
+	storyId string,
+	dirPath string,
+	sEn string,
+) (story.StoryMultilingual, error) {
+	sR := sEn
+	var err error
+	if params.R != "en" {
+		sR, err = translateStory("en", params.R, sEn)
+		if err != nil {
+			return story.StoryMultilingual{},
+				fmt.Errorf("failed to translate story en->%s: %w", params.R, err)
+		}
+		err = cache.WriteFileString(dirPath+"/story_"+params.R+".txt", sR)
+		logIfError("failed to write story "+params.R, err)
+	}
+
+	sSt, err := convertMonolingualStoryToStructured(sR)
+	if err != nil {
+		return story.StoryMultilingual{}, fmt.Errorf("failed to convert story to structured: %w", err)
+	}
+
+	sMult := story.StoryMultilingual{
+		Id:    storyId,
+		Level: params.Level,
+		Localizations: map[string]story.Story{
+			params.R: {
+				Title: eraseNewlines(sSt.Title),
+				Chapters: []story.Chapter{
+					{Paragraphs: toStoryParagraphsFromMonolingual(sSt)},
 				},
 			},
 		},

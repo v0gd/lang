@@ -14,6 +14,7 @@ import { TopMenu } from "./TopMenu";
 import { GenerateStoryView } from "./GenerateView";
 import { useLoggedIn } from "./firebase";
 import { SignInPage, SignUpPage } from "./LoginPage";
+import { useStoryQuery } from "./queries";
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === Theme.Dark);
@@ -78,7 +79,7 @@ function StoryMenuComponent() {
       )}
       <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
-          displayingStory={false}
+          showTranslationControls={false}
           settings={settings}
           setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
           setShowSettingsMenu={() => setShowSettings(true)}
@@ -110,6 +111,17 @@ function StoryComponent() {
 
   const [settings, setSettings] = useState<Settings>(loadSettingsOrDefault());
 
+  // Same query key as inside StoryView; TanStack Query dedupes the request so
+  // we get the response here for free and can hide the translation toggles
+  // when the story has no L localization.
+  const storyQuery = useStoryQuery(
+    storyId!,
+    settings.lLocale,
+    settings.rLocale,
+  );
+  const showTranslationControls =
+    storyQuery.data?.localizations.has(settings.lLocale) ?? false;
+
   return (
     <div className="flex flex-col h-screen font-literata">
       {showSettings && (
@@ -121,7 +133,7 @@ function StoryComponent() {
       )}
       <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
-          displayingStory={true}
+          showTranslationControls={showTranslationControls}
           settings={settings}
           setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
           setShowSettingsMenu={() => setShowSettings(true)}
@@ -157,7 +169,7 @@ function StoryGenerateComponent() {
       )}
       <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
-          displayingStory={false}
+          showTranslationControls={false}
           settings={settings}
           setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
           setShowSettingsMenu={() => setShowSettings(true)}
@@ -185,7 +197,7 @@ function LoginComponent() {
       )}
       <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
-          displayingStory={false}
+          showTranslationControls={false}
           settings={settings}
           setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
           setShowSettingsMenu={() => setShowSettings(true)}
@@ -213,7 +225,7 @@ function SignUpComponent() {
       )}
       <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
-          displayingStory={false}
+          showTranslationControls={false}
           settings={settings}
           setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
           setShowSettingsMenu={() => setShowSettings(true)}

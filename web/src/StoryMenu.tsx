@@ -46,6 +46,14 @@ function Button({
   );
 }
 
+function titleForLocale(
+  s: StoryDescriptor,
+  locale: string,
+): string | undefined {
+  const idx = s.locales.indexOf(locale);
+  return idx === -1 ? undefined : s.titles[idx];
+}
+
 function StoryButton({
   s,
   l,
@@ -61,9 +69,14 @@ function StoryButton({
   onStorySelected: (storyId: string) => void;
   onDelete?: (storyId: string) => void;
 }) {
+  // The story is shown as a primary title in the learned language (r) with an
+  // optional mother-tongue (l) subtitle. Stories generated without a mother
+  // tongue have only the r title.
+  const primaryTitle = titleForLocale(s, r) ?? s.titles[0];
+  const secondaryTitle = titleForLocale(s, l);
   const languagesMatch =
-    (s.locales[0] === l && s.locales[1] === r) ||
-    (s.locales[0] === r && s.locales[1] === l);
+    s.locales.includes(r) &&
+    (secondaryTitle !== undefined || s.locales.length === 1);
   const shouldShowFlags = !languagesMatch && showLanguageFlagsIfDontMatch;
   return (
     <Button onPressed={() => onStorySelected(s.id)}>
@@ -72,16 +85,14 @@ function StoryButton({
           {s.level}
         </div>
         <div className="flex flex-col flex-grow text-left">
-          <div className="font-semibold text-main-text">
-            {s.locales[0] == l ? s.titles[1] : s.titles[0]}
-          </div>
-          <div className="text-secondary-text text-sm">
-            {s.locales[0] == l ? s.titles[0] : s.titles[1]}
-          </div>
+          <div className="font-semibold text-main-text">{primaryTitle}</div>
+          {secondaryTitle && (
+            <div className="text-secondary-text text-sm">{secondaryTitle}</div>
+          )}
         </div>
         {shouldShowFlags && (
           <div className="flex items-center min-w-[40px] text-center">
-            {getFlagEmoji(s.locales[0]) + getFlagEmoji(s.locales[1])}
+            {s.locales.map((loc) => getFlagEmoji(loc)).join("")}
           </div>
         )}
         {onDelete && (
@@ -139,8 +150,8 @@ export function StoryMenuUnauthorized({
 
       {query.data.map(
         (story) =>
-          story.locales.length === 2 &&
-          story.titles.length === 2 && (
+          story.locales.length === story.titles.length &&
+          story.locales.length >= 1 && (
             <StoryButton
               key={story.id}
               s={story}
@@ -232,8 +243,8 @@ export function StoryMenu({
       {!queryGenerated.isError &&
         queryGenerated.data.map(
           (story) =>
-            story.locales.length === 2 &&
-            story.titles.length === 2 && (
+            story.locales.length === story.titles.length &&
+            story.locales.length >= 1 && (
               <StoryButton
                 key={story.id}
                 s={story}
@@ -256,8 +267,8 @@ export function StoryMenu({
 
       {query.data.map(
         (story) =>
-          story.locales.length === 2 &&
-          story.titles.length === 2 && (
+          story.locales.length === story.titles.length &&
+          story.locales.length >= 1 && (
             <StoryButton
               key={story.id}
               s={story}
