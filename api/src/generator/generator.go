@@ -26,8 +26,8 @@ var (
 func Setup() {
 	var err error = nil
 	storeStmt, err = db.Db.Prepare(
-		"INSERT INTO story (id, author_id, language_level, locales, titles, input_params, content) " +
-			"VALUES (?, ?, ?, ?, ?, ?, ?) " +
+		"INSERT INTO story (id, author_id, language_level, locales, titles, input_params, content, source) " +
+			"VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
 			"ON DUPLICATE KEY UPDATE locales = locales;") // Duplicate key should neven happen
 	if err != nil {
 		panic(err)
@@ -52,24 +52,34 @@ func Setup() {
 	}
 }
 
-func store(s story.StoryMultilingual, params InputParameters, authorId string) error {
-	sJson, err := json.Marshal(s)
-	if err != nil {
-		return fmt.Errorf("failed to marshal story: %w", err)
-	}
+// Source identifies how a story row in the `story` table was produced. The
+// values must match the MySQL ENUM definition in db-setup.sql.
+type Source string
+
+const (
+	SourceGenerated Source = "generated"
+	SourceImage     Source = "image"
+	SourceProvided  Source = "provided"
+)
+
+func Store(s story.StoryMultilingual, params InputParameters, authorId string, source Source) error {
 	paramsJson, err := json.Marshal(params)
 	if err != nil {
 		return fmt.Errorf("failed to marshal input parameters: %w", err)
 	}
+	sJson, err := json.Marshal(s)
+	if err != nil {
+		return fmt.Errorf("failed to marshal story: %w", err)
+	}
 	locales := make([]string, 0, len(s.Localizations))
 	titles := make([]string, 0, len(s.Localizations))
-	for l, s := range s.Localizations {
+	for l, st := range s.Localizations {
 		locales = append(locales, l)
-		titles = append(titles, s.Title)
+		titles = append(titles, st.Title)
 	}
 	localesStr := strings.Join(locales, ",")
 	titlesStr := strings.Join(titles, "\n")
-	_, err = storeStmt.Exec(s.Id, authorId, s.Level, localesStr, titlesStr, paramsJson, sJson)
+	_, err = storeStmt.Exec(s.Id, authorId, s.Level, localesStr, titlesStr, paramsJson, sJson, string(source))
 	if err != nil {
 		return fmt.Errorf("failed to store story in db: %w", err)
 	}
@@ -191,7 +201,9 @@ var storySchema = llm.StructuredOutputSchema{
 	Description: "a story in structured format",
 }
 
-func convertMonolingualStoryToStructured(s string) (Story, error) {
+// ConvertMonolingualStoryToStructured uses an LLM to break a plain monolingual
+// text into a structured Story (title + paragraphs of sentences).
+func ConvertMonolingualStoryToStructured(s string) (Story, error) {
 	sJson, err := llm.InvokeStructured(
 		"",
 		fmt.Sprintf(
@@ -211,7 +223,7 @@ func convertMonolingualStoryToStructured(s string) (Story, error) {
 	return structured, nil
 }
 
-func toStoryParagraphsFromMonolingual(s Story) []story.Paragraph {
+func ToStoryParagraphsFromMonolingual(s Story) []story.Paragraph {
 	paragraphs := make([]story.Paragraph, len(s.Paragraphs))
 	for i, p := range s.Paragraphs {
 		sentences := make([]story.Sentence, len(p.Sentences))
@@ -542,7 +554,7 @@ func translateAndConvertBilingualToStructured(
 	}
 
 	story.CalculateSentenceAndSegmentIndices(&sMult)
-	err = store(sMult, params, authorId)
+	err = Store(sMult, params, authorId, SourceGenerated)
 	return sMult, err
 }
 
@@ -565,7 +577,7 @@ func translateAndConvertMonolingualToStructured(
 		logIfError("failed to write story "+params.R, err)
 	}
 
-	sSt, err := convertMonolingualStoryToStructured(sR)
+	sSt, err := ConvertMonolingualStoryToStructured(sR)
 	if err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("failed to convert story to structured: %w", err)
 	}
@@ -577,14 +589,14 @@ func translateAndConvertMonolingualToStructured(
 			params.R: {
 				Title: eraseNewlines(sSt.Title),
 				Chapters: []story.Chapter{
-					{Paragraphs: toStoryParagraphsFromMonolingual(sSt)},
+					{Paragraphs: ToStoryParagraphsFromMonolingual(sSt)},
 				},
 			},
 		},
 	}
 
 	story.CalculateSentenceAndSegmentIndices(&sMult)
-	err = store(sMult, params, authorId)
+	err = Store(sMult, params, authorId, SourceGenerated)
 	return sMult, err
 }
 

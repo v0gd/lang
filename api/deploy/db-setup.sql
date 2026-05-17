@@ -11,6 +11,10 @@ CREATE TABLE story (
     input_params JSON NOT NULL,  -- parameters used to generate the story
     content JSON NOT NULL,
     deleted TINYINT(1) NOT NULL DEFAULT 0,
+    -- Where the story originated from. 'generated': produced by the LLM
+    -- generator. 'image': OCR'd from a user-uploaded photo via /scan.
+    -- 'provided': manually added by the user.
+    source ENUM('generated','image','provided') NOT NULL DEFAULT 'generated',
     PRIMARY KEY (id),
     INDEX (locales),
     INDEX (language_level),

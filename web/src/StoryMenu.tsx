@@ -1,15 +1,18 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  NoTargetLanguageError,
   useDeleteStoryMutation,
   useGeneratedStoryListQuery,
+  useScanMutation,
   useStoryListQuery,
 } from "./queries";
 import { lstr } from "./localization";
 import { useNavigate } from "react-router-dom";
-import { FaWandMagicSparkles, FaTrashCan } from "react-icons/fa6";
+import { FaWandMagicSparkles, FaTrashCan, FaCamera } from "react-icons/fa6";
 import { StoryDescriptor } from "./story";
 import getFlagEmoji from "./LanguageFlag";
 import { Modal } from "./Modal";
+import { useLoggedIn } from "./firebase";
 
 function Button({
   children,
@@ -52,6 +55,90 @@ function titleForLocale(
 ): string | undefined {
   const idx = s.locales.indexOf(locale);
   return idx === -1 ? undefined : s.titles[idx];
+}
+
+// ScanButton renders the "Scan" CTA on the main page and owns the hidden file
+// input that triggers a multi-platform image picker (camera or gallery).
+//
+// Behavior:
+// - When `onUnauthorized` is set (used in the logged-out variant) the click
+//   bypasses the picker entirely and signals the parent to navigate to login.
+// - Otherwise it opens the native picker. On selection, `onFiles` is called
+//   with the chosen images and the parent kicks off the scan mutation.
+function ScanButton({
+  l,
+  onFiles,
+  onUnauthorized,
+  disabled,
+}: {
+  l: string;
+  onFiles: (files: File[]) => void;
+  onUnauthorized?: () => void;
+  disabled?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const handleClick = () => {
+    if (disabled) return;
+    if (onUnauthorized) {
+      onUnauthorized();
+      return;
+    }
+    inputRef.current?.click();
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    onFiles(Array.from(files));
+    // Reset so picking the same files again still fires onChange.
+    e.target.value = "";
+  };
+
+  return (
+    <div className="w-full mt-2 mb-4">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={disabled}
+        className="w-full bg-surface hover:bg-cream-dark text-main-text border border-border p-3 rounded-xl transition-colors disabled:opacity-50"
+      >
+        <div className="w-full flex justify-center font-semibold text-base items-center gap-2">
+          <FaCamera />
+          {lstr(l).scan_button}
+        </div>
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        multiple
+        hidden
+        onChange={handleChange}
+      />
+    </div>
+  );
+}
+
+// ScanProgressOverlay shows a non-dismissable overlay while the /scan request
+// is in flight. We deliberately do NOT use the existing Modal component for
+// the in-flight state - the user must wait for the LLM round-trip and a close
+// button would just confuse them.
+function ScanProgressOverlay({ l }: { l: string }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+      <div className="bg-surface border border-border rounded-2xl px-6 py-5 flex items-center gap-3 shadow-xl">
+        <span
+          aria-hidden
+          className="inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"
+        />
+        <span className="font-semibold text-main-text">
+          {lstr(l).scan_in_progress}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function StoryButton({
@@ -144,6 +231,8 @@ export function StoryMenuUnauthorized({
         </div>
       </Button>
 
+      <ScanButton l={l} onFiles={() => {}} onUnauthorized={() => navigate("/login")} />
+
       <header className="text-left text-2xl font-semibold text-main-text mt-10 mb-3">
         {lstr(l).stories_header}
       </header>
@@ -176,10 +265,13 @@ export function StoryMenu({
   onStorySelected: (storyId: string) => void;
 }) {
   const navigate = useNavigate();
+  const loggedIn = useLoggedIn();
   const query = useStoryListQuery(l, r);
   const queryGenerated = useGeneratedStoryListQuery(l, r);
   const deleteMutation = useDeleteStoryMutation();
+  const scanMutation = useScanMutation();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [scanErrorMessage, setScanErrorMessage] = useState<string | null>(null);
 
   const confirmDelete = () => {
     if (confirmDeleteId) {
@@ -187,6 +279,38 @@ export function StoryMenu({
       setConfirmDeleteId(null);
     }
   };
+
+  const handleScanFiles = (files: File[]) => {
+    if (!loggedIn) {
+      navigate("/login");
+      return;
+    }
+    if (scanMutation.isPending) return;
+    setScanErrorMessage(null);
+    scanMutation.mutate({ images: files, r });
+  };
+
+  // Pump scan results into navigation / error UI. Doing this in an effect
+  // (instead of inside the button click handler) lets useScanMutation own its
+  // pending/error state and survives React strict-mode double-invocations.
+  useEffect(() => {
+    if (scanMutation.isSuccess && scanMutation.data) {
+      const id = scanMutation.data.id;
+      scanMutation.reset();
+      navigate(`/generated/${id}`);
+    }
+  }, [scanMutation.isSuccess, scanMutation.data, scanMutation, navigate]);
+
+  useEffect(() => {
+    if (scanMutation.isError) {
+      const message =
+        scanMutation.error instanceof NoTargetLanguageError
+          ? lstr(l).scan_no_target_text_error
+          : lstr(l).scan_error;
+      setScanErrorMessage(message);
+      scanMutation.reset();
+    }
+  }, [scanMutation.isError, scanMutation.error, scanMutation, l]);
 
   if (query.isPending || queryGenerated.isPending) {
     return <div>{lstr(l).loading_story_list}</div>;
@@ -229,6 +353,22 @@ export function StoryMenu({
         </Modal>
       )}
 
+      {scanMutation.isPending && <ScanProgressOverlay l={l} />}
+
+      {scanErrorMessage && (
+        <Modal
+          showCloseButton={true}
+          locale={l}
+          closeModal={() => setScanErrorMessage(null)}
+        >
+          <div className="flex flex-col items-center gap-3 py-2">
+            <p className="text-base text-main-text text-center">
+              {scanErrorMessage}
+            </p>
+          </div>
+        </Modal>
+      )}
+
       <header className="text-left text-2xl font-semibold text-main-text mb-3">
         {lstr(l).my_stories_header}
       </header>
@@ -239,6 +379,8 @@ export function StoryMenu({
           {lstr(l).generate_story_button}
         </div>
       </Button>
+
+      <ScanButton l={l} onFiles={handleScanFiles} disabled={scanMutation.isPending} />
 
       {!queryGenerated.isError &&
         queryGenerated.data.map(

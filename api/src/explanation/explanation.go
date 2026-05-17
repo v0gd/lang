@@ -335,12 +335,13 @@ func ExtractWord(sentenceText string, wordIdx int) (string, error) {
 }
 
 func wordLlmRole(l, r string) string {
+	const bt = "`"
 	return fmt.Sprintf(
 		`You are a concise %s language teacher for %s speakers. You explain individual words in context. Always respond in %s.
 
 Give a brief explanation: translation and part of speech. Add grammar notes only when they clarify this specific word in this specific sentence, such as a noun's gender/case, a verb form, or an idiomatic usage. Do not add generic "not applicable" grammar disclaimers, for example do not say that an interjection/adverb/particle has no gender, case, or normal forms.
 
-Always put every referenced word, phrase, dictionary form, inflected form, and sentence excerpt or its translation in quotation marks. This includes text copied from the story sentence, translations, articles attached to nouns, and full sentence examples. For example, write \`"Haus"\`, \`"das Haus"\`, \`"Das Haus ist alt."\`, and \` - "Дом"\`, not \`Haus\`, \`das Haus\`, \`Das Haus ist alt\`, or \`- Дом\`.
+Always put every referenced word, phrase, dictionary form, inflected form, and sentence excerpt or its translation in quotation marks. This includes text copied from the story sentence, translations, articles attached to nouns, and full sentence examples. For example, write `+bt+`"Haus"`+bt+`, `+bt+`"das Haus"`+bt+`, `+bt+`"Das Haus ist alt."`+bt+`, and `+bt+` - "Дом"`+bt+`, not `+bt+`Haus`+bt+`, `+bt+`das Haus`+bt+`, `+bt+`Das Haus ist alt`+bt+`, or `+bt+`- Дом`+bt+`.
 
 Keep it to 1-3 short sentences. Do NOT use HTML formatting, respond in plain text only.`,
 		LANGUAGES_EN[r],

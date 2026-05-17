@@ -71,6 +71,11 @@ export function useGeneratedStoryListQuery(l: string, r: string) {
 
 export class NotFoundError {}
 
+// Thrown by useScanMutation when the backend determines the uploaded images
+// don't contain a meaningful amount of target-language text. The UI uses this
+// to show a specific message instead of a generic error.
+export class NoTargetLanguageError {}
+
 export function useStoryQuery(storyId: string, l: string, r: string) {
   let url = new URL(`${API_URL}/story`);
   url.searchParams.append("id", storyId);
@@ -158,6 +163,58 @@ export function useGenerateStoryMutation() {
           }
         });
       });
+    },
+    retry: false,
+  });
+}
+
+export function useScanMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      images,
+      r,
+    }: {
+      images: File[];
+      r: string;
+    }) => {
+      if (images.length === 0) {
+        throw new Error("No images selected for scan");
+      }
+
+      const formData = new FormData();
+      for (const img of images) {
+        formData.append("images", img, img.name);
+      }
+
+      const url = apiUrl("/scan");
+      url.searchParams.append("r", r);
+      const token = await getAuthToken();
+      // Note: do NOT set Content-Type manually here - the browser must add the
+      // multipart boundary to the header.
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
+
+      if (res.status === 422) {
+        const body = await res.json().catch(() => null);
+        if (body && body.error === "no_target_language") {
+          throw new NoTargetLanguageError();
+        }
+        throw new Error("Unexpected 422 result for scan");
+      }
+      if (!res.ok) {
+        console.error("Unexpected result for", url, res);
+        throw new Error("Unexpected result for scan mutation");
+      }
+      const obj = await res.json();
+      return {
+        id: obj.id as string,
+        localizations: new Map(Object.entries(obj.localizations)),
+      };
     },
     retry: false,
   });

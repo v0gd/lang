@@ -15,6 +15,10 @@ export interface LocalizationStrings {
   my_stories_header: string;
   stories_header: string;
   generate_story_button: string;
+  scan_button: string;
+  scan_in_progress: string;
+  scan_no_target_text_error: string;
+  scan_error: string;
   show_translation_checkbox: string;
   show_translation_by_sentence_checkbox: string;
   login_button: string;
@@ -59,6 +63,11 @@ const strings = new Map<string, LocalizationStrings>([
       my_stories_header: "My stories",
       stories_header: "Original stories",
       generate_story_button: "Create a new story",
+      scan_button: "Scan",
+      scan_in_progress: "Scanning the page...",
+      scan_no_target_text_error:
+        "No text in your learned language was found in the image",
+      scan_error: "Couldn't process the image — try again",
       show_translation_checkbox: "Show translation",
       show_translation_by_sentence_checkbox: "By sentence",
       login_button: "Login",
@@ -133,6 +142,11 @@ const strings = new Map<string, LocalizationStrings>([
       my_stories_header: "Meine Geschichten",
       stories_header: "Originalgeschichten",
       generate_story_button: "Neue Geschichte generieren",
+      scan_button: "Scannen",
+      scan_in_progress: "Seite wird gescannt...",
+      scan_no_target_text_error:
+        "Im Bild wurde kein Text in deiner Lernsprache gefunden",
+      scan_error: "Bild konnte nicht verarbeitet werden — bitte erneut versuchen",
       show_translation_checkbox: "Übersetzung anzeigen",
       show_translation_by_sentence_checkbox: "Nach Sätzen",
       login_button: "Einloggen",
@@ -207,6 +221,11 @@ const strings = new Map<string, LocalizationStrings>([
       my_stories_header: "Мои истории",
       stories_header: "Авторские истории",
       generate_story_button: "Сгенерировать новую историю",
+      scan_button: "Сканировать",
+      scan_in_progress: "Сканирование страницы...",
+      scan_no_target_text_error:
+        "На изображении не найден текст на изучаемом языке",
+      scan_error: "Не удалось обработать изображение — попробуйте ещё раз",
       show_translation_checkbox: "Показать перевод",
       show_translation_by_sentence_checkbox: "По предложениям",
       login_button: "Войти",

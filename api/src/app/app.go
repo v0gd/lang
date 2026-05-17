@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"lang/api/firebase"
 	"lang/api/generator"
 	"lang/api/osutil"
+	"lang/api/scan"
 	"lang/api/story"
 	"lang/api/stringutil"
 	"lang/api/tts"
@@ -582,6 +584,84 @@ func getGeneratedStoryListHandler(w http.ResponseWriter, req *http.Request, uid 
 	return writeJSON(w, stories)
 }
 
+// scanMaxImages caps the number of images per /scan request so a single
+// request cannot run a huge multimodal LLM call. 5 covers the realistic
+// "scan a few pages of a letter / booklet" use case.
+const scanMaxImages = 5
+
+// scanMaxTotalBytes caps the combined raw image payload per /scan request to
+// keep memory usage and provider request size bounded.
+const scanMaxTotalBytes = 10 * 1024 * 1024
+
+func scanHandler(w http.ResponseWriter, req *http.Request, uid string) error {
+	r, err := mustExtractLocaleParam(req, "r")
+	if err != nil {
+		return err
+	}
+
+	// Limit body size before the multipart parser allocates anything.
+	req.Body = http.MaxBytesReader(w, req.Body, scanMaxTotalBytes+1024*1024)
+	if err := req.ParseMultipartForm(scanMaxTotalBytes); err != nil {
+		return newHTTPError(http.StatusBadRequest, "Invalid multipart form: %v", err)
+	}
+	if req.MultipartForm == nil {
+		return newHTTPError(http.StatusBadRequest, "Missing multipart form")
+	}
+	defer func() {
+		if req.MultipartForm != nil {
+			_ = req.MultipartForm.RemoveAll()
+		}
+	}()
+
+	files := req.MultipartForm.File["images"]
+	if len(files) == 0 {
+		return newHTTPError(http.StatusBadRequest, "No 'images' files in form")
+	}
+	if len(files) > scanMaxImages {
+		return newHTTPError(http.StatusBadRequest, "Too many images (max %d)", scanMaxImages)
+	}
+
+	images := make([]scan.Image, 0, len(files))
+	var totalBytes int64
+	for i, fh := range files {
+		mimeType := fh.Header.Get("Content-Type")
+		if !strings.HasPrefix(mimeType, "image/") {
+			return newHTTPError(http.StatusBadRequest, "File %d is not an image (got %q)", i, mimeType)
+		}
+		f, err := fh.Open()
+		if err != nil {
+			return fmt.Errorf("failed to open uploaded image %d: %w", i, err)
+		}
+		bytes, err := io.ReadAll(f)
+		_ = f.Close()
+		if err != nil {
+			return fmt.Errorf("failed to read uploaded image %d: %w", i, err)
+		}
+		if len(bytes) == 0 {
+			return newHTTPError(http.StatusBadRequest, "Image %d is empty", i)
+		}
+		totalBytes += int64(len(bytes))
+		if totalBytes > scanMaxTotalBytes {
+			return newHTTPError(http.StatusRequestEntityTooLarge, "Total image size exceeds %d bytes", scanMaxTotalBytes)
+		}
+		images = append(images, scan.Image{Bytes: bytes, MimeType: mimeType})
+	}
+
+	slog.Info(fmt.Sprintf("Scanning %d image(s) (%d bytes) for user %s -> %s", len(images), totalBytes, uid, r))
+
+	s, err := scan.Scan(images, r, uid)
+	if err != nil {
+		if errors.Is(err, scan.ErrNoTargetLanguage) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusUnprocessableEntity)
+			return json.NewEncoder(w).Encode(map[string]any{"error": "no_target_language"})
+		}
+		return fmt.Errorf("scan.Scan error: %w", err)
+	}
+	dict := convertStoryToDict(s, "", r)
+	return writeJSON(w, dict)
+}
+
 func deleteGeneratedStoryHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 	storyId, err := mustExtractParam(req, "story_id")
 	if err != nil {
@@ -622,6 +702,7 @@ func Serve() error {
 	mux.HandleFunc("/story-list", wrap(wrapMustBeMethod("GET", getStoryListHandler)))
 	mux.HandleFunc("/story", wrap(wrapMustBeMethod("GET", getStoryHandler)))
 	mux.HandleFunc("/generate", wrap(wrapMustBeMethod("POST", wrapAuth(generateStoryHandler))))
+	mux.HandleFunc("/scan", wrap(wrapMustBeMethod("POST", wrapAuth(scanHandler))))
 	mux.HandleFunc("/generated-list", wrap(wrapMustBeMethod("GET", wrapAuth(getGeneratedStoryListHandler))))
 	mux.HandleFunc("/delete-generated", wrap(wrapMustBeMethod("DELETE", wrapAuth(deleteGeneratedStoryHandler))))
 	mux.HandleFunc("/explain", wrap(wrapMustBeMethod("GET", getExplanationHandler)))
