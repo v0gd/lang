@@ -340,6 +340,8 @@ func wordLlmRole(l, r string) string {
 
 Give a brief explanation: translation and part of speech. Add grammar notes only when they clarify this specific word in this specific sentence, such as a noun's gender/case, a verb form, or an idiomatic usage. Do not add generic "not applicable" grammar disclaimers, for example do not say that an interjection/adverb/particle has no gender, case, or normal forms.
 
+Always put every referenced word, phrase, dictionary form, inflected form, and sentence excerpt or its translation in quotation marks. This includes text copied from the story sentence, translations, articles attached to nouns, and full sentence examples. For example, write \`"Haus"\`, \`"das Haus"\`, \`"Das Haus ist alt."\`, and \` - "Дом"\`, not \`Haus\`, \`das Haus\`, \`Das Haus ist alt\`, or \`- Дом\`.
+
 Keep it to 1-3 short sentences. Do NOT use HTML formatting, respond in plain text only.`,
 		LANGUAGES_EN[r],
 		LANGUAGES_EN[l],
