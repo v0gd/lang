@@ -16,6 +16,7 @@ import (
 
 	"lang/api/explanation"
 	"lang/api/firebase"
+	"lang/api/gender"
 	"lang/api/generator"
 	"lang/api/osutil"
 	"lang/api/scan"
@@ -429,6 +430,13 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 
+	// Strip {m/f/n} gender markers before handing text to the explanation
+	// LLMs and word-extractor. The markers exist for UI coloring only and
+	// would only distract the explanation prompts. Stripping does NOT shift
+	// word indices because markers contain no whitespace.
+	lSentenceText := gender.Strip(maybeLSentence.ToPlainStr())
+	rSentenceText := gender.Strip(rSentence.ToPlainStr())
+
 	wordIdxStr := req.URL.Query().Get("word_idx")
 	if wordIdxStr == "" {
 		eId := explanation.SentenceExplanationId{
@@ -438,7 +446,7 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 			LSentenceIdx: lIdx,
 			RSentenceIdx: rIdx,
 		}
-		expl, eErr := explanation.GetSentence(eId, maybeLSentence.ToPlainStr(), rSentence.ToPlainStr())
+		expl, eErr := explanation.GetSentence(eId, lSentenceText, rSentenceText)
 		if eErr != nil {
 			return fmt.Errorf("explanation.GetSentence error: %w", eErr)
 		}
@@ -456,7 +464,7 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 			RSentenceIdx: rIdx,
 			WordIdx:      wordIdx,
 		}
-		expl, eErr := explanation.GetWord(wId, maybeLSentence.ToPlainStr(), rSentence.ToPlainStr())
+		expl, eErr := explanation.GetWord(wId, lSentenceText, rSentenceText)
 		if eErr != nil {
 			return fmt.Errorf("explanation.GetWord error: %w", eErr)
 		}
@@ -488,7 +496,8 @@ func getAudioHandler(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	path, tErr := tts.Get(sent.ToPlainStr(), locale, storyID, idx)
+	// Strip gender markers so TTS doesn't try to pronounce "{n}" etc.
+	path, tErr := tts.Get(gender.Strip(sent.ToPlainStr()), locale, storyID, idx)
 	if tErr != nil {
 		return fmt.Errorf("tts.Get error: %w", tErr)
 	}

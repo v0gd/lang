@@ -3,6 +3,13 @@ import { Chapter, Paragraph, Sentence } from "./story";
 import { apiUrl, useStoryQuery, NotFoundError } from "./queries";
 import { lstr } from "./localization";
 import { WordExplanationPopup } from "./Explanation";
+import {
+  GENDER_CLASS,
+  GENDER_MARKER_REGEX,
+  Gender,
+  stripGenderMarkers,
+  supportsGenderColoring,
+} from "./gender";
 
 interface ActivePopup {
   storyId: string;
@@ -60,6 +67,25 @@ function Image({ storyId, imageId }: { storyId: string; imageId?: string }) {
   );
 }
 
+// Extracts the gender marker (if any) from a single token and returns the
+// token with the marker stripped. Returns the marker letter (m/f/n) or null
+// when the token has no marker. Used by both the interactive and
+// non-interactive branches in SentenceView so markers NEVER reach the DOM.
+function splitGenderMarker(token: string): {
+  cleanToken: string;
+  gender: Gender | null;
+} {
+  const match = token.match(GENDER_MARKER_REGEX);
+  // Reset lastIndex because GENDER_MARKER_REGEX is a /g regex and
+  // `match` on a /g regex doesn't have capture groups; we read the letter
+  // out of the matched string itself ("{m}" -> "m").
+  if (!match || match.length === 0) {
+    return { cleanToken: token, gender: null };
+  }
+  const gender = match[0][1] as Gender;
+  return { cleanToken: token.replace(GENDER_MARKER_REGEX, ""), gender };
+}
+
 function SentenceView({
   text,
   storyId,
@@ -69,6 +95,7 @@ function SentenceView({
   rSentence,
   textStyle,
   interactive,
+  applyGenderColors,
 }: {
   text: string;
   storyId: string;
@@ -78,6 +105,11 @@ function SentenceView({
   rSentence: Sentence;
   textStyle: string;
   interactive: boolean;
+  // When true, tokens carrying a {m/f/n} marker are tinted with the
+  // gender-specific class. When false the markers are still stripped, just
+  // not coloured (used for the L-side / translated text and for stories in
+  // locales that don't support gender markers at all).
+  applyGenderColors: boolean;
 }) {
   const { activePopup, openPopup } = useContext(PopupContext);
 
@@ -97,8 +129,14 @@ function SentenceView({
   );
 
   if (!interactive) {
+    // Strip markers but do not colour: this branch is used for the L-side
+    // translation row, which is markerless in practice but we strip
+    // defensively to avoid rendering a literal "{n}" if anything ever
+    // slipped through.
     return (
-      <span className={`select-none ${textStyle}`}>{text}</span>
+      <span className={`select-none ${textStyle}`}>
+        {stripGenderMarkers(text)}
+      </span>
     );
   }
 
@@ -119,20 +157,26 @@ function SentenceView({
         }
 
         const currentWordIdx = wordIdx++;
-        const leading = token.match(/^\p{P}+/u)?.[0] ?? "";
-        const trailing = token.match(/\p{P}+$/u)?.[0] ?? "";
-        const word = token.slice(
+        // Strip the gender marker BEFORE splitting punctuation, because the
+        // backend strips markers before extracting the word too - keeping
+        // both sides in lock-step is what makes the word_idx match.
+        const { cleanToken, gender } = splitGenderMarker(token);
+        const leading = cleanToken.match(/^\p{P}+/u)?.[0] ?? "";
+        const trailing = cleanToken.match(/\p{P}+$/u)?.[0] ?? "";
+        const word = cleanToken.slice(
           leading.length,
-          token.length - trailing.length || undefined,
+          cleanToken.length - trailing.length || undefined,
         );
         const isActive =
           isActiveInThisSentence && activePopup?.wordIdx === currentWordIdx;
+        const genderClass =
+          applyGenderColors && gender ? GENDER_CLASS[gender] : "";
 
         return (
           <Fragment key={idx}>
             {leading}
             <span
-              className={`cursor-pointer hover:bg-highlight-light rounded px-[1px] transition-colors ${isActive ? "bg-highlight relative" : ""}`}
+              className={`cursor-pointer hover:bg-highlight-light rounded px-[1px] transition-colors ${genderClass} ${isActive ? "bg-highlight relative" : ""}`}
               onClick={(e) => onWordClick(e, currentWordIdx)}
             >
               {word}
@@ -163,6 +207,7 @@ function ParagraphView({
   rParagraph,
   shouldShowTranslation,
   showTranslationBySentence,
+  applyGenderColors,
 }: {
   storyId: string;
   l: string;
@@ -171,6 +216,7 @@ function ParagraphView({
   rParagraph: Paragraph;
   shouldShowTranslation: boolean;
   showTranslationBySentence: boolean;
+  applyGenderColors: boolean;
 }) {
   if (lParagraph.sentences.length !== rParagraph.sentences.length) {
     console.error("Paragraph sentences are not aligned");
@@ -196,6 +242,7 @@ function ParagraphView({
                   rSentence={sentence}
                   textStyle="text-base text-main-text"
                   interactive={true}
+                  applyGenderColors={applyGenderColors}
                 />
               </span>
               {index < rParagraph.sentences.length - 1 && " "}
@@ -217,6 +264,7 @@ function ParagraphView({
                   rSentence={rParagraph.sentences[index]}
                   textStyle="text-base text-secondary-text font-thin"
                   interactive={false}
+                  applyGenderColors={false}
                 />
               </span>
               {index < lParagraph.sentences.length - 1 && " "}
@@ -241,6 +289,7 @@ function ParagraphView({
                     rSentence={sentence}
                     textStyle="text-base text-main-text"
                     interactive={true}
+                    applyGenderColors={applyGenderColors}
                   />
                 </span>
               </div>
@@ -256,6 +305,7 @@ function ParagraphView({
                       rSentence={rParagraph.sentences[index]}
                       textStyle="text-base text-secondary-text font-thin"
                       interactive={false}
+                      applyGenderColors={false}
                     />
                   </span>
                 </div>
@@ -276,6 +326,7 @@ function ChapterView({
   rChapter,
   shouldShowTranslation,
   showTranslationBySentence,
+  applyGenderColors,
 }: {
   storyId: string;
   l: string;
@@ -284,6 +335,7 @@ function ChapterView({
   rChapter: Chapter;
   shouldShowTranslation: boolean;
   showTranslationBySentence: boolean;
+  applyGenderColors: boolean;
 }) {
   if (lChapter.paragraphs.length !== rChapter.paragraphs.length) {
     console.error("Chapter paragraphs are not aligned");
@@ -312,6 +364,7 @@ function ChapterView({
             rParagraph={paragraph}
             shouldShowTranslation={shouldShowTranslation}
             showTranslationBySentence={showTranslationBySentence}
+            applyGenderColors={applyGenderColors}
           />
         ))}
       </div>
@@ -325,12 +378,18 @@ function StoryView({
   r,
   shouldShowTranslation,
   showTranslationBySentence,
+  colorNounGenders,
 }: {
   storyId: string;
   l: string;
   r: string;
   shouldShowTranslation: boolean;
   showTranslationBySentence: boolean;
+  // User-facing toggle. The effective decision (`applyGenderColors`) also
+  // checks that the learned-language locale actually supports gender markers
+  // - we honour the flag even when R doesn't support gender, because flipping
+  // it off should still strip any stray markers in older content.
+  colorNounGenders: boolean;
 }) {
   const query = useStoryQuery(storyId, l, r);
 
@@ -374,6 +433,8 @@ function StoryView({
     );
   }
 
+  const applyGenderColors = colorNounGenders && supportsGenderColoring(r);
+
   return (
     <PopupProvider>
       <div>
@@ -396,6 +457,7 @@ function StoryView({
                 rChapter={chapter}
                 shouldShowTranslation={effectiveShowTranslation}
                 showTranslationBySentence={showTranslationBySentence}
+                applyGenderColors={applyGenderColors}
               />
             ))}
           </div>

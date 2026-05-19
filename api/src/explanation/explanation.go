@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"lang/api/db"
+	"lang/api/gender"
 	"lang/api/llm"
 	"lang/api/story"
 	"lang/api/telemetry"
@@ -64,6 +65,8 @@ Do not explain what translation means if it is already clear from the translatio
 2. do not explain """"Geschäftigkeit" - суета, занятость, передает активность матери.""", because for a russian speaking student it's obvious that "суета, занятость" already conducts "активность".
 
 You must always format your answer as a list of valid HTML paragraphs using only <p>, <strong>, <em> tags.
+
+When you quote an excerpt from the story or its translation, use straight ASCII double quotes ("...") only. If the excerpt already begins and ends with quotation marks of any style (typographic German „...", French «...», single '...', etc.), strip those outer quotes when referencing the excerpt and wrap it in straight quotes exactly once. Never produce nested quotes like "„Kaffee"" or ""text"".
 
 Example input for Russian speakers learning English (A2 level):
 The phone rang, its shrill ringing slicing through the quiet of Clara's afternoon.
@@ -321,8 +324,13 @@ func (wId WordExplanationId) String() string {
 // ExtractWord splits sentenceText by whitespace, skips empty tokens,
 // and returns the non-empty token at wordIdx with leading/trailing
 // punctuation stripped. This logic must match the frontend tokenization exactly.
+//
+// Any {m}/{f}/{n} gender markers are stripped before tokenization. Markers
+// carry no whitespace so they don't change token indices, but they would
+// otherwise leak into the extracted word (e.g. "Haus{n" after a partial
+// punctuation trim) and confuse downstream prompts.
 func ExtractWord(sentenceText string, wordIdx int) (string, error) {
-	tokens := strings.Fields(sentenceText)
+	tokens := strings.Fields(gender.Strip(sentenceText))
 	if wordIdx < 0 || wordIdx >= len(tokens) {
 		return "", fmt.Errorf("word_idx %d out of range (sentence has %d words)", wordIdx, len(tokens))
 	}
@@ -342,6 +350,8 @@ func wordLlmRole(l, r string) string {
 Give a brief explanation: translation and part of speech. Add grammar notes only when they clarify this specific word in this specific sentence, such as a noun's gender/case, a verb form, or an idiomatic usage. Do not add generic "not applicable" grammar disclaimers, for example do not say that an interjection/adverb/particle has no gender, case, or normal forms.
 
 Always put every referenced word, phrase, dictionary form, inflected form, and sentence excerpt or its translation in quotation marks. This includes text copied from the story sentence, translations, articles attached to nouns, and full sentence examples. For example, write `+bt+`"Haus"`+bt+`, `+bt+`"das Haus"`+bt+`, `+bt+`"Das Haus ist alt."`+bt+`, and `+bt+` - "Дом"`+bt+`, not `+bt+`Haus`+bt+`, `+bt+`das Haus`+bt+`, `+bt+`Das Haus ist alt`+bt+`, or `+bt+`- Дом`+bt+`.
+
+Use straight ASCII double quotes (`+bt+`"..."`+bt+`) only. If an excerpt from the story already starts and ends with quotation marks of any style (typographic German `+bt+`„..."`+bt+`, French `+bt+`«...»`+bt+`, single `+bt+`'...'`+bt+`, etc.), strip those outer quotes when you reference the excerpt and wrap it in straight quotes once. Never produce nested quotes like `+bt+`"„Kaffee""`+bt+` or `+bt+`""text""`+bt+` - there must be exactly one pair of straight quotes around each referenced item.
 
 Keep it to 1-3 short sentences. Do NOT use HTML formatting, respond in plain text only.`,
 		LANGUAGES_EN[r],

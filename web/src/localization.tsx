@@ -21,6 +21,11 @@ export interface LocalizationStrings {
   scan_error: string;
   show_translation_checkbox: string;
   show_translation_by_sentence_checkbox: string;
+  color_noun_genders_checkbox: string;
+  color_noun_genders_explanation: string;
+  color_noun_genders_masculine: string;
+  color_noun_genders_feminine: string;
+  color_noun_genders_neuter: string;
   login_button: string;
   signup_button: string;
   logout_button: string;
@@ -70,6 +75,12 @@ const strings = new Map<string, LocalizationStrings>([
       scan_error: "Couldn't process the image — try again",
       show_translation_checkbox: "Show translation",
       show_translation_by_sentence_checkbox: "By sentence",
+      color_noun_genders_checkbox: "Color nouns by gender",
+      color_noun_genders_explanation:
+        "Nouns are tinted by grammatical gender so you can pick up the article over time.",
+      color_noun_genders_masculine: "masculine",
+      color_noun_genders_feminine: "feminine",
+      color_noun_genders_neuter: "neuter",
       login_button: "Login",
       signup_button: "Sign up",
       logout_button: "Logout",
@@ -149,6 +160,12 @@ const strings = new Map<string, LocalizationStrings>([
       scan_error: "Bild konnte nicht verarbeitet werden — bitte erneut versuchen",
       show_translation_checkbox: "Übersetzung anzeigen",
       show_translation_by_sentence_checkbox: "Nach Sätzen",
+      color_noun_genders_checkbox: "Substantive nach Geschlecht einfärben",
+      color_noun_genders_explanation:
+        "Substantive werden nach grammatikalischem Geschlecht eingefärbt, damit du dir den Artikel mit der Zeit merken kannst.",
+      color_noun_genders_masculine: "maskulin",
+      color_noun_genders_feminine: "feminin",
+      color_noun_genders_neuter: "neutrum",
       login_button: "Einloggen",
       signup_button: "Registrieren",
       logout_button: "Ausloggen",
@@ -228,6 +245,12 @@ const strings = new Map<string, LocalizationStrings>([
       scan_error: "Не удалось обработать изображение — попробуйте ещё раз",
       show_translation_checkbox: "Показать перевод",
       show_translation_by_sentence_checkbox: "По предложениям",
+      color_noun_genders_checkbox: "Окрашивать существительные по роду",
+      color_noun_genders_explanation:
+        "Существительные подсвечиваются по грамматическому роду, чтобы со временем запомнить артикль.",
+      color_noun_genders_masculine: "мужской",
+      color_noun_genders_feminine: "женский",
+      color_noun_genders_neuter: "средний",
       login_button: "Войти",
       signup_button: "Зарегистрироваться",
       logout_button: "Выйти",

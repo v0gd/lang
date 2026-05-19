@@ -25,6 +25,11 @@ function loadSettingsOrDefault(): Settings {
   if (settingsString) {
     const parsed = JSON.parse(settingsString);
     applyTheme(parsed.theme ?? Theme.Light);
+    // colorNounGenders was added later than the rest of Settings; default
+    // it on for users whose localStorage predates the field.
+    if (parsed.colorNounGenders === undefined) {
+      parsed.colorNounGenders = true;
+    }
     return parsed;
   }
   applyTheme(Theme.Light);
@@ -34,6 +39,7 @@ function loadSettingsOrDefault(): Settings {
     showTranslation: true,
     showTranslationMode: ShowTranslationMode.ByParagraph,
     theme: Theme.Light,
+    colorNounGenders: true,
   };
 }
 
@@ -147,6 +153,7 @@ function StoryComponent() {
             showTranslationBySentence={
               settings.showTranslationMode === ShowTranslationMode.BySentence
             }
+            colorNounGenders={settings.colorNounGenders}
           />
         </div>
       </div>

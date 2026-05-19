@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"lang/api/cache"
 	"lang/api/db"
+	"lang/api/gender"
 	"lang/api/llm"
 	"lang/api/story"
 	"lang/api/stringutil"
@@ -179,7 +180,15 @@ func convertBilingualStoryToStructured(sl string, sr string) (StoryWithTranslati
 		fmt.Sprintf(
 			"Given the following text in original language and then its translation, "+
 				"extract the title, paragraphs and sentences with the corresponding translations:\n\n"+
-				"%s\n\nTranslation:\n\n%s", sl, sr),
+				"%s\n\nTranslation:\n\n%s\n\n"+
+				"Important: words in either text may be followed by a {m}, {f}, or {n} "+
+				"annotation attached directly to the word with no space (for example "+
+				`"Haus{n}", "Frau{f}", "Tag{m}"). These are grammatical-gender markers. `+
+				"You MUST preserve them verbatim, in the same position, attached to the same "+
+				"word. Do not add new markers, do not remove them, do not move them between words, "+
+				"and do not insert spaces around them. If a marked word is followed by punctuation, "+
+				"the marker still goes directly after the word and before the punctuation.",
+			sl, sr),
 		storyWithTranslationSchema,
 		llm.GptMini)
 	if err != nil {
@@ -207,7 +216,15 @@ func ConvertMonolingualStoryToStructured(s string) (Story, error) {
 	sJson, err := llm.InvokeStructured(
 		"",
 		fmt.Sprintf(
-			"Given the following text, extract the title, paragraphs and sentences:\n\n%s", s),
+			"Given the following text, extract the title, paragraphs and sentences:\n\n%s\n\n"+
+				"Important: words in the text may be followed by a {m}, {f}, or {n} "+
+				"annotation attached directly to the word with no space (for example "+
+				`"Haus{n}", "Frau{f}", "Tag{m}"). These are grammatical-gender markers. `+
+				"You MUST preserve them verbatim, in the same position, attached to the same "+
+				"word. Do not add new markers, do not remove them, do not move them between words, "+
+				"and do not insert spaces around them. If a marked word is followed by punctuation, "+
+				"the marker still goes directly after the word and before the punctuation.",
+			s),
 		storySchema,
 		llm.GptMini)
 	if err != nil {
@@ -495,6 +512,25 @@ func Generate(params InputParameters, authorId string) (story.StoryMultilingual,
 	return translateAndConvertMonolingualToStructured(params, authorId, storyId, dirPath, sEn)
 }
 
+// annotateGendersIfSupported runs the gender annotation LLM step on text in
+// the given target locale and writes the annotated text to the per-story
+// cache directory for debugging. On any failure it logs loudly and returns
+// the original text unchanged - story generation must not be aborted just
+// because the (cosmetic) gender coloring couldn't be produced.
+func annotateGendersIfSupported(text, locale, storyId, dirPath string) string {
+	if !gender.Supports(locale) {
+		return text
+	}
+	annotated, err := gender.Annotate(text, locale)
+	if err != nil {
+		slog.Error(fmt.Sprintf("gender.Annotate failed for story %s (%s): %v", storyId, locale, err))
+		return text
+	}
+	writeErr := cache.WriteFileString(dirPath+"/story_"+locale+"_gendered.txt", annotated)
+	logIfError("failed to write gendered story "+locale, writeErr)
+	return annotated
+}
+
 func translateAndConvertBilingualToStructured(
 	params InputParameters,
 	authorId string,
@@ -524,6 +560,8 @@ func translateAndConvertBilingualToStructured(
 		logIfError("failed to write story "+params.R, err)
 	}
 
+	sR = annotateGendersIfSupported(sR, params.R, storyId, dirPath)
+
 	// TODO: add translation validation (sentence count, etc.)
 	sSt, err := convertBilingualStoryToStructured(sL, sR)
 	if err != nil {
@@ -543,7 +581,11 @@ func translateAndConvertBilingualToStructured(
 				},
 			},
 			params.R: {
-				Title: eraseNewlines(sSt.TranslatedTitle),
+				// The structurer extracts the title from the annotated R
+				// text, so it may carry a {m/f/n} marker (e.g.
+				// "Das Haus{n}"). Titles are intentionally kept
+				// marker-free / uncolored, so strip here.
+				Title: eraseNewlines(gender.Strip(sSt.TranslatedTitle)),
 				Chapters: []story.Chapter{
 					{
 						Paragraphs: toStoryParagraphsFromBilingual(sSt, func(s SentenceWithTranslation) string { return s.Translated }),
@@ -577,6 +619,8 @@ func translateAndConvertMonolingualToStructured(
 		logIfError("failed to write story "+params.R, err)
 	}
 
+	sR = annotateGendersIfSupported(sR, params.R, storyId, dirPath)
+
 	sSt, err := ConvertMonolingualStoryToStructured(sR)
 	if err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("failed to convert story to structured: %w", err)
@@ -587,7 +631,10 @@ func translateAndConvertMonolingualToStructured(
 		Level: params.Level,
 		Localizations: map[string]story.Story{
 			params.R: {
-				Title: eraseNewlines(sSt.Title),
+				// Strip any gender marker the structurer attached to the
+				// title - titles render uncolored. See bilingual path for
+				// the full rationale.
+				Title: eraseNewlines(gender.Strip(sSt.Title)),
 				Chapters: []story.Chapter{
 					{Paragraphs: ToStoryParagraphsFromMonolingual(sSt)},
 				},

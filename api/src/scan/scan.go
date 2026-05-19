@@ -9,8 +9,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
+	"lang/api/gender"
 	"lang/api/generator"
 	"lang/api/llm"
 	"lang/api/story"
@@ -128,12 +130,32 @@ func Scan(images []Image, r story.Locale, authorId string) (story.StoryMultiling
 
 	level := normalizeLevel(out.Level)
 
-	structured, err := generator.ConvertMonolingualStoryToStructured(out.Content)
+	// Annotate noun genders before structuring, so the {m/f/n} markers ride
+	// inside sentence text through the structurer (which is prompted to
+	// preserve them) and into the persisted JSON. Soft fallback: on any
+	// annotation failure we proceed with the unannotated text - the story
+	// is still usable, just without gender coloring.
+	content := out.Content
+	if gender.Supports(r) {
+		annotated, aErr := gender.Annotate(content, r)
+		if aErr != nil {
+			slog.Error(fmt.Sprintf("scan: gender.Annotate failed for %s: %v", r, aErr))
+		} else {
+			content = annotated
+		}
+	}
+
+	structured, err := generator.ConvertMonolingualStoryToStructured(content)
 	if err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("scan: failed to structure scanned text: %w", err)
 	}
+	// out.Title comes from the OCR pass directly (no markers) and is
+	// preferred. The structurer-derived title can carry a marker when it
+	// extracted the title from the annotated body, so strip just in case.
 	if title := strings.TrimSpace(out.Title); title != "" {
 		structured.Title = title
+	} else {
+		structured.Title = gender.Strip(structured.Title)
 	}
 
 	storyId := "g_" + stringutil.RandomBase32(20)
@@ -172,5 +194,5 @@ func normalizeLevel(raw string) story.Level {
 			return l
 		}
 	}
-	return "A1"
+	return "B1"
 }
