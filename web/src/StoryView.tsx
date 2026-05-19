@@ -115,6 +115,13 @@ function SentenceView({
 
   const onWordClick = useCallback(
     (e: React.MouseEvent, wordIdx: number) => {
+      // Skip the popup when the click is really the end of a drag-select:
+      // we want users to be able to highlight prose for copy / external
+      // lookup without hijacking the release into an explanation popup.
+      const selection = window.getSelection();
+      if (selection && selection.toString().length > 0) {
+        return;
+      }
       e.stopPropagation();
       openPopup({
         storyId,
@@ -134,7 +141,7 @@ function SentenceView({
     // defensively to avoid rendering a literal "{n}" if anything ever
     // slipped through.
     return (
-      <span className={`select-none ${textStyle}`}>
+      <span className={textStyle}>
         {stripGenderMarkers(text)}
       </span>
     );
@@ -148,7 +155,7 @@ function SentenceView({
   let wordIdx = 0;
 
   return (
-    <span className={`select-none ${textStyle}`}>
+    <span className={textStyle}>
       {tokens.map((token, idx) => {
         if (/^\s+$/.test(token) || token === "") {
           return (
