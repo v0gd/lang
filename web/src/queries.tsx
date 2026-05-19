@@ -71,10 +71,16 @@ export function useGeneratedStoryListQuery(l: string, r: string) {
 
 export class NotFoundError {}
 
-// Thrown by useScanMutation when the backend determines the uploaded images
-// don't contain a meaningful amount of target-language text. The UI uses this
-// to show a specific message instead of a generic error.
+// Thrown by useScanMutation and useUploadMutation when the backend determines
+// that the user input doesn't contain a meaningful amount of target-language
+// text. The UI uses this to show a specific message instead of a generic one.
 export class NoTargetLanguageError {}
+
+// Thrown by useUploadMutation when the prompt-injection gate flags the input.
+export class PromptInjectionError {}
+
+// Thrown by useUploadMutation when the content-policy gate flags the input.
+export class DisallowedContentError {}
 
 export function useStoryQuery(storyId: string, l: string, r: string) {
   let url = new URL(`${API_URL}/story`);
@@ -209,6 +215,49 @@ export function useScanMutation() {
       if (!res.ok) {
         console.error("Unexpected result for", url, res);
         throw new Error("Unexpected result for scan mutation");
+      }
+      const obj = await res.json();
+      return {
+        id: obj.id as string,
+        localizations: new Map(Object.entries(obj.localizations)),
+      };
+    },
+    retry: false,
+  });
+}
+
+// useUploadMutation drives the user-pasted-text ingest flow. The request is a
+// small JSON body so we send it directly (no multipart). The backend may
+// return a 422 with one of three specific error codes; we surface each as a
+// dedicated typed error so the UI can localize messages.
+export function useUploadMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ text, r }: { text: string; r: string }) => {
+      const url = apiUrl("/upload");
+      url.searchParams.append("r", r);
+      const token = await getAuthToken();
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ text }),
+      });
+      queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
+
+      if (res.status === 422) {
+        const body = await res.json().catch(() => null);
+        const code = body && typeof body.error === "string" ? body.error : "";
+        if (code === "prompt_injection") throw new PromptInjectionError();
+        if (code === "disallowed_content") throw new DisallowedContentError();
+        if (code === "no_target_language") throw new NoTargetLanguageError();
+        throw new Error("Unexpected 422 result for upload");
+      }
+      if (!res.ok) {
+        console.error("Unexpected result for", url, res);
+        throw new Error("Unexpected result for upload mutation");
       }
       const obj = await res.json();
       return {

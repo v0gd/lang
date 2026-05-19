@@ -23,6 +23,7 @@ import (
 	"lang/api/story"
 	"lang/api/stringutil"
 	"lang/api/tts"
+	"lang/api/upload"
 )
 
 var (
@@ -671,6 +672,64 @@ func scanHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 	return writeJSON(w, dict)
 }
 
+// uploadHandler accepts a user-pasted passage of target-language text, runs
+// it through the safety/normalize/gender/structuring pipeline, and persists
+// the resulting story with source='provided'.
+//
+// Request shape:
+//
+//	POST /upload?r=de
+//	Authorization: Bearer <firebase-id-token>
+//	Content-Type: application/json
+//	{"text": "..."}
+//
+// The body is hard-capped to roughly the worst-case UTF-8 size of
+// upload.MaxInputChars (4 bytes/rune) plus a small JSON envelope. The
+// rune-accurate limit is enforced inside upload.Upload so the user sees the
+// same "characters" count the UI does.
+func uploadHandler(w http.ResponseWriter, req *http.Request, uid string) error {
+	r, err := mustExtractLocaleParam(req, "r")
+	if err != nil {
+		return err
+	}
+
+	maxBodyBytes := int64(4*upload.MaxInputChars + 1024)
+	req.Body = http.MaxBytesReader(w, req.Body, maxBodyBytes)
+
+	var body struct {
+		Text string `json:"text"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&body); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			return newHTTPError(http.StatusRequestEntityTooLarge, "Request body exceeds %d bytes", maxBodyBytes)
+		}
+		return newHTTPError(http.StatusBadRequest, "Invalid JSON body: %v", err)
+	}
+
+	slog.Info(fmt.Sprintf("Uploading %d chars for user %s -> %s", len(body.Text), uid, r))
+
+	s, err := upload.Upload(body.Text, r, uid)
+	if err != nil {
+		switch {
+		case errors.Is(err, upload.ErrInputEmpty):
+			return newHTTPError(http.StatusBadRequest, "Empty text")
+		case errors.Is(err, upload.ErrInputTooLong):
+			return newHTTPError(http.StatusRequestEntityTooLarge, "Text exceeds %d characters", upload.MaxInputChars)
+		case errors.Is(err, upload.ErrPromptInjection):
+			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "prompt_injection"})
+		case errors.Is(err, upload.ErrDisallowedContent):
+			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "disallowed_content"})
+		case errors.Is(err, upload.ErrNoTargetLanguage):
+			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "no_target_language"})
+		default:
+			return fmt.Errorf("upload.Upload error: %w", err)
+		}
+	}
+	dict := convertStoryToDict(s, "", r)
+	return writeJSON(w, dict)
+}
+
 func deleteGeneratedStoryHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 	storyId, err := mustExtractParam(req, "story_id")
 	if err != nil {
@@ -704,6 +763,15 @@ func writeJSON(w http.ResponseWriter, data any) error {
 	return json.NewEncoder(w).Encode(data)
 }
 
+// writeJSONStatus is writeJSON for non-200 responses. We set the header and
+// status code BEFORE encoding so the client sees the correct status when the
+// body arrives.
+func writeJSONStatus(w http.ResponseWriter, status int, data any) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(data)
+}
+
 func Serve() error {
 	CURATED_STORIES, CURATED_STORY_ID_TO_DIR = loadCuratedStories()
 
@@ -712,6 +780,7 @@ func Serve() error {
 	mux.HandleFunc("/story", wrap(wrapMustBeMethod("GET", getStoryHandler)))
 	mux.HandleFunc("/generate", wrap(wrapMustBeMethod("POST", wrapAuth(generateStoryHandler))))
 	mux.HandleFunc("/scan", wrap(wrapMustBeMethod("POST", wrapAuth(scanHandler))))
+	mux.HandleFunc("/upload", wrap(wrapMustBeMethod("POST", wrapAuth(uploadHandler))))
 	mux.HandleFunc("/generated-list", wrap(wrapMustBeMethod("GET", wrapAuth(getGeneratedStoryListHandler))))
 	mux.HandleFunc("/delete-generated", wrap(wrapMustBeMethod("DELETE", wrapAuth(deleteGeneratedStoryHandler))))
 	mux.HandleFunc("/explain", wrap(wrapMustBeMethod("GET", getExplanationHandler)))

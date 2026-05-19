@@ -8,7 +8,12 @@ import {
 } from "./queries";
 import { lstr } from "./localization";
 import { useNavigate } from "react-router-dom";
-import { FaWandMagicSparkles, FaTrashCan, FaCamera } from "react-icons/fa6";
+import {
+  FaWandMagicSparkles,
+  FaTrashCan,
+  FaCamera,
+  FaPenToSquare,
+} from "react-icons/fa6";
 import { StoryDescriptor } from "./story";
 import getFlagEmoji from "./LanguageFlag";
 import { Modal } from "./Modal";
@@ -117,6 +122,28 @@ function ScanButton({
         hidden
         onChange={handleChange}
       />
+    </div>
+  );
+}
+
+// UploadButton renders the "Upload text" CTA on the main page. The actual
+// textarea + LLM pipeline lives on the /upload page; this button just
+// navigates there. We keep it visually identical to ScanButton so the two
+// secondary entry points read as a pair below the primary "Create a new
+// story" CTA.
+function UploadButton({ l, onPressed }: { l: string; onPressed: () => void }) {
+  return (
+    <div className="w-full mt-2 mb-4">
+      <button
+        type="button"
+        onClick={onPressed}
+        className="w-full bg-surface hover:bg-cream-dark text-main-text border border-border p-3 rounded-xl transition-colors"
+      >
+        <div className="w-full flex justify-center font-semibold text-base items-center gap-2">
+          <FaPenToSquare />
+          {lstr(l).upload_button}
+        </div>
+      </button>
     </div>
   );
 }
@@ -232,6 +259,8 @@ export function StoryMenuUnauthorized({
       </Button>
 
       <ScanButton l={l} onFiles={() => {}} onUnauthorized={() => navigate("/login")} />
+
+      <UploadButton l={l} onPressed={() => navigate("/login")} />
 
       <header className="text-left text-2xl font-semibold text-main-text mt-10 mb-3">
         {lstr(l).stories_header}
@@ -381,6 +410,8 @@ export function StoryMenu({
       </Button>
 
       <ScanButton l={l} onFiles={handleScanFiles} disabled={scanMutation.isPending} />
+
+      <UploadButton l={l} onPressed={() => navigate("/upload")} />
 
       {!queryGenerated.isError &&
         queryGenerated.data.map(

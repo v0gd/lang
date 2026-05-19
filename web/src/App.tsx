@@ -12,6 +12,7 @@ import StoryView from "./StoryView";
 import { Settings, Theme, ShowTranslationMode } from "./settings";
 import { TopMenu } from "./TopMenu";
 import { GenerateStoryView } from "./GenerateView";
+import { UploadView } from "./UploadView";
 import { useLoggedIn } from "./firebase";
 import { SignInPage, SignUpPage } from "./LoginPage";
 import { useStoryQuery } from "./queries";
@@ -189,6 +190,34 @@ function StoryGenerateComponent() {
   );
 }
 
+function UploadComponent() {
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [settings, setSettings] = useState<Settings>(loadSettingsOrDefault());
+
+  return (
+    <div className="flex flex-col h-screen font-literata">
+      {showSettings && (
+        <SettingsModal
+          settings={settings}
+          setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
+          closeModal={() => setShowSettings(false)}
+        />
+      )}
+      <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
+        <TopMenu
+          showTranslationControls={false}
+          settings={settings}
+          setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
+          setShowSettingsMenu={() => setShowSettings(true)}
+        />
+        <div className="w-full max-w-[900px] pt-4 px-4 pb-10">
+          <UploadView l={settings.lLocale} r={settings.rLocale} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoginComponent() {
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [settings, setSettings] = useState<Settings>(loadSettingsOrDefault());
@@ -253,6 +282,7 @@ function App() {
         <Route path="/login" Component={LoginComponent}></Route>
         <Route path="/signup" Component={SignUpComponent}></Route>
         <Route path="/generate" Component={StoryGenerateComponent}></Route>
+        <Route path="/upload" Component={UploadComponent}></Route>
         <Route path="/generated/:storyId" Component={StoryComponent}></Route>
         <Route path="/:storyId" Component={StoryComponent}></Route>
       </Routes>
