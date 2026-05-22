@@ -8,6 +8,7 @@
 package gender
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"lang/api/llm"
@@ -87,8 +88,9 @@ Text to annotate:
 // Caller is responsible for skipping the call entirely for unsupported
 // locales (use Supports). On failure returns ("", err); callers should log
 // and fall back to the original text rather than aborting the whole
-// generate/scan request.
-func Annotate(text, locale string) (string, error) {
+// generate/scan request. ctx is forwarded into the underlying LLM call so
+// the annotation aborts when the caller's context is cancelled.
+func Annotate(ctx context.Context, text, locale string) (string, error) {
 	languageName, ok := languageNames[locale]
 	if !ok {
 		return "", fmt.Errorf("gender.Annotate: unsupported locale %q", locale)
@@ -103,6 +105,7 @@ func Annotate(text, locale string) (string, error) {
 	// This is a one-shot per generated/scanned story so the cost overhead
 	// is bounded.
 	respJson, err := llm.InvokeStructured(
+		ctx,
 		annotationRole(languageName),
 		annotationPrompt(languageName, text),
 		annotationSchema,

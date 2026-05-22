@@ -6,12 +6,14 @@
 // segment into paragraphs + sentences before persisting as a story with
 // source='provided'.
 //
-// The pipeline runs 5 LLM calls. The first two (safety gates) run in
-// parallel; the remaining three run sequentially because each depends on the
-// previous one's output.
+// The pipeline runs up to 4 LLM calls. The safety gate (prompt injection +
+// content policy in one combined call) and the normalize call run in
+// parallel; the gender annotation and structuring steps run sequentially
+// after both have completed.
 package upload
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -118,8 +120,9 @@ When "is_disallowed" is true, set "disallowed_reason" to a short snake_case Engl
 Decide both verdicts based only on the data between <START_%[1]s> and <END_%[1]s>.`, tag, text)
 }
 
-func checkSafety(text, tag string) (safetyOutput, error) {
+func checkSafety(ctx context.Context, text, tag string) (safetyOutput, error) {
 	respJson, err := llm.InvokeStructured(
+		ctx,
 		safetyRole,
 		safetyPrompt(tag, text),
 		safetySchema,
@@ -183,8 +186,9 @@ Text to clean:
 %[2]s`, targetLanguage, text)
 }
 
-func normalizeAndClassify(text, targetLanguage string) (normalizeOutput, error) {
+func normalizeAndClassify(ctx context.Context, text, targetLanguage string) (normalizeOutput, error) {
 	respJson, err := llm.InvokeStructured(
+		ctx,
 		normalizeRole(targetLanguage),
 		normalizePrompt(targetLanguage, text),
 		normalizeSchema,
@@ -205,8 +209,9 @@ func normalizeAndClassify(text, targetLanguage string) (normalizeOutput, error) 
 // Upload runs the full upload pipeline on a single piece of user-pasted text
 // and persists the resulting story. Returns one of the sentinel errors above
 // on a known failure mode; everything else is wrapped as an unexpected
-// internal error.
-func Upload(text string, r story.Locale, authorId string) (story.StoryMultilingual, error) {
+// internal error. ctx is forwarded into every LLM call in this pipeline so
+// cancelling it aborts all in-flight requests.
+func Upload(ctx context.Context, text string, r story.Locale, authorId string) (story.StoryMultilingual, error) {
 	if strings.TrimSpace(text) == "" {
 		return story.StoryMultilingual{}, ErrInputEmpty
 	}
@@ -243,13 +248,16 @@ func Upload(text string, r story.Locale, authorId string) (story.StoryMultilingu
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		safety, safetyErr = checkSafety(text, tag)
+		safety, safetyErr = checkSafety(ctx, text, tag)
 	}()
 	go func() {
 		defer wg.Done()
-		norm, normErr = normalizeAndClassify(text, targetLanguage)
+		norm, normErr = normalizeAndClassify(ctx, text, targetLanguage)
 	}()
 	wg.Wait()
+	if err := ctx.Err(); err != nil {
+		return story.StoryMultilingual{}, err
+	}
 
 	// Check safety first so that on a rejection we surface the right sentinel
 	// error and silently drop whatever normalize produced. Prompt-injection
@@ -281,18 +289,27 @@ func Upload(text string, r story.Locale, authorId string) (story.StoryMultilingu
 	// pattern as the scan path.
 	annotated := cleaned
 	if gender.Supports(r) {
-		out, aErr := gender.Annotate(cleaned, r)
+		out, aErr := gender.Annotate(ctx, cleaned, r)
 		if aErr != nil {
+			if errors.Is(aErr, context.Canceled) || errors.Is(aErr, context.DeadlineExceeded) || ctx.Err() != nil {
+				return story.StoryMultilingual{}, aErr
+			}
 			slog.Error(fmt.Sprintf("upload: gender.Annotate failed for %s: %v", r, aErr))
 		} else {
 			annotated = out
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return story.StoryMultilingual{}, err
+	}
 
 	// --- Stage 3: structuring ---
-	structured, err := generator.ConvertMonolingualStoryToStructured(annotated)
+	structured, err := generator.ConvertMonolingualStoryToStructured(ctx, annotated)
 	if err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("upload: failed to structure text: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return story.StoryMultilingual{}, err
 	}
 	// Normalization already gave us a target-language title outside the
 	// annotated text, so we prefer it. Strip any stray gender markers from
@@ -324,7 +341,10 @@ func Upload(text string, r story.Locale, authorId string) (story.StoryMultilingu
 		Level: level,
 		R:     r,
 	}
-	if err := generator.Store(sMult, params, authorId, generator.SourceProvided); err != nil {
+	if err := ctx.Err(); err != nil {
+		return story.StoryMultilingual{}, err
+	}
+	if err := generator.Store(ctx, sMult, params, authorId, generator.SourceProvided); err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("upload: failed to persist story: %w", err)
 	}
 	return sMult, nil

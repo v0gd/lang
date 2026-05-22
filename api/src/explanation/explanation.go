@@ -1,6 +1,7 @@
 package explanation
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -231,8 +232,8 @@ func Setup() {
 	}
 }
 
-func storeSentence(eId SentenceExplanationId, e SentenceExplanation) error {
-	_, err := sentenceStoreStmt.Exec(eId.StoryId, eId.L, eId.R, eId.LSentenceIdx, eId.RSentenceIdx, e.Content)
+func storeSentence(ctx context.Context, eId SentenceExplanationId, e SentenceExplanation) error {
+	_, err := sentenceStoreStmt.ExecContext(ctx, eId.StoryId, eId.L, eId.R, eId.LSentenceIdx, eId.RSentenceIdx, e.Content)
 	if err != nil {
 		return fmt.Errorf("failed to store sentence explanation in db: %w", err)
 	}
@@ -253,9 +254,10 @@ func loadSentence(eId SentenceExplanationId) (SentenceExplanation, error) {
 }
 
 func generateSentence(
-	eId SentenceExplanationId, maybeLSentence, rSentence string,
+	ctx context.Context, eId SentenceExplanationId, maybeLSentence, rSentence string,
 ) (SentenceExplanation, error) {
 	response, err := llm.Invoke(
+		ctx,
 		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, maybeLSentence, eId.R, rSentence), llm.Gpt)
 	if err != nil {
 		return SentenceExplanation{}, err
@@ -268,7 +270,7 @@ func generateSentence(
 	}, nil
 }
 
-func GetSentence(eId SentenceExplanationId, maybeLSentence string, rSentence string) (SentenceExplanation, error) {
+func GetSentence(ctx context.Context, eId SentenceExplanationId, maybeLSentence string, rSentence string) (SentenceExplanation, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Getting sentence explanation %s", eId.String()))
 	defer trace.Stop()
 
@@ -281,15 +283,24 @@ func GetSentence(eId SentenceExplanationId, maybeLSentence string, rSentence str
 		return SentenceExplanation{}, fmt.Errorf("failed to load sentence explanation from db: %w", err)
 	}
 
-	e, err = generateSentence(eId, maybeLSentence, rSentence)
+	e, err = generateSentence(ctx, eId, maybeLSentence, rSentence)
 	if err != nil {
 		return SentenceExplanation{}, fmt.Errorf("failed to generate sentence explanation: %w", err)
 	}
+	if err := ctx.Err(); err != nil {
+		return SentenceExplanation{}, err
+	}
 
-	err = storeSentence(eId, e)
+	err = storeSentence(ctx, eId, e)
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return SentenceExplanation{}, ctxErr
+		}
 		slog.Error(fmt.Sprintf("Failed to store sentence explanation in db: %v", err))
 		return e, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return SentenceExplanation{}, err
 	}
 
 	// There might be a race condition when 2 requests try to store the same explanation
@@ -399,8 +410,8 @@ Translation: "%s"`, word, LANGUAGES_EN[r], rSentence, maybeLSentence)
 	panic(fmt.Sprintf("Unknown language %s", l))
 }
 
-func storeWord(wId WordExplanationId, e WordExplanation) error {
-	_, err := wordStoreStmt.Exec(wId.StoryId, wId.L, wId.R, wId.LSentenceIdx, wId.RSentenceIdx, wId.WordIdx, e.Content)
+func storeWord(ctx context.Context, wId WordExplanationId, e WordExplanation) error {
+	_, err := wordStoreStmt.ExecContext(ctx, wId.StoryId, wId.L, wId.R, wId.LSentenceIdx, wId.RSentenceIdx, wId.WordIdx, e.Content)
 	if err != nil {
 		return fmt.Errorf("failed to store word explanation in db: %w", err)
 	}
@@ -416,16 +427,17 @@ func loadWord(wId WordExplanationId) (WordExplanation, error) {
 	return WordExplanation{Content: content}, nil
 }
 
-func generateWord(wId WordExplanationId, word, maybeLSentence, rSentence string) (WordExplanation, error) {
+func generateWord(ctx context.Context, wId WordExplanationId, word, maybeLSentence, rSentence string) (WordExplanation, error) {
 	response, err := llm.Invoke(
-		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, maybeLSentence), llm.GptMini)
+		ctx,
+		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, maybeLSentence), llm.Gpt)
 	if err != nil {
 		return WordExplanation{}, err
 	}
 	return WordExplanation{Content: strings.TrimSpace(response)}, nil
 }
 
-func GetWord(wId WordExplanationId, maybeLSentence string, rSentence string) (WordExplanation, error) {
+func GetWord(ctx context.Context, wId WordExplanationId, maybeLSentence string, rSentence string) (WordExplanation, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Getting word explanation %s", wId.String()))
 	defer trace.Stop()
 
@@ -443,15 +455,24 @@ func GetWord(wId WordExplanationId, maybeLSentence string, rSentence string) (Wo
 		return WordExplanation{}, fmt.Errorf("failed to extract word: %w", err)
 	}
 
-	e, err = generateWord(wId, word, maybeLSentence, rSentence)
+	e, err = generateWord(ctx, wId, word, maybeLSentence, rSentence)
 	if err != nil {
 		return WordExplanation{}, fmt.Errorf("failed to generate word explanation: %w", err)
 	}
+	if err := ctx.Err(); err != nil {
+		return WordExplanation{}, err
+	}
 
-	err = storeWord(wId, e)
+	err = storeWord(ctx, wId, e)
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return WordExplanation{}, ctxErr
+		}
 		slog.Error(fmt.Sprintf("Failed to store word explanation in db: %v", err))
 		return e, nil
+	}
+	if err := ctx.Err(); err != nil {
+		return WordExplanation{}, err
 	}
 
 	e, err = loadWord(wId)
@@ -471,11 +492,11 @@ func Test() {
 		R:            "ru",
 		RSentenceIdx: 2,
 	}
-	_, err := GetSentence(eId, "This is an English sentence.", "Это английское предложение.")
+	_, err := GetSentence(context.Background(), eId, "This is an English sentence.", "Это английское предложение.")
 	if err != nil {
 		panic(err)
 	}
-	expl, err := GetSentence(eId, "This is an English sentence.", "Это английское предложение.")
+	expl, err := GetSentence(context.Background(), eId, "This is an English sentence.", "Это английское предложение.")
 	if err != nil {
 		panic(err)
 	}

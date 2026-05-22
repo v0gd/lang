@@ -37,22 +37,25 @@ const (
 
 const maxTokens = 8192
 
-func Invoke(role string, content string, model Model) (string, error) {
+// Invoke runs a plain text-only chat completion. The context is forwarded
+// into the SDK call: cancelling it (e.g. via the HTTP request context when
+// the client disconnects) aborts the in-flight request.
+func Invoke(ctx context.Context, role string, content string, model Model) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGpt(role, content, openai.ChatModel("gpt-5.5"))
+		return invokeGpt(ctx, role, content, openai.ChatModel("gpt-5.5"))
 	case GptMini:
-		return invokeGpt(role, content, openai.ChatModelGPT5_4Mini)
+		return invokeGpt(ctx, role, content, openai.ChatModelGPT5_4Mini)
 	case ClaudeSonnet:
-		return invokeClaude(role, content, anthropic.ModelClaudeSonnet4_6)
+		return invokeClaude(ctx, role, content, anthropic.ModelClaudeSonnet4_6)
 	case ClaudeOpus:
-		return invokeClaude(role, content, anthropic.ModelClaudeOpus4_7)
+		return invokeClaude(ctx, role, content, anthropic.ModelClaudeOpus4_7)
 	default:
 		return "", fmt.Errorf("Unknown model")
 	}
 }
 
-func invokeGpt(role string, content string, model openai.ChatModel) (string, error) {
+func invokeGpt(ctx context.Context, role string, content string, model openai.ChatModel) (string, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Invoking Gpt \"%s\"", roleTruncatedForTrace(role)))
 	defer trace.Stop()
 
@@ -63,7 +66,7 @@ func invokeGpt(role string, content string, model openai.ChatModel) (string, err
 	messages = append(messages, openai.UserMessage(content))
 
 	resp, err := openaiClient.Chat.Completions.New(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionNewParams{
 			Model:               model,
 			Messages:            messages,
@@ -91,7 +94,7 @@ func invokeGpt(role string, content string, model openai.ChatModel) (string, err
 	return choice.Message.Content, nil
 }
 
-func invokeClaude(role string, content string, model anthropic.Model) (string, error) {
+func invokeClaude(ctx context.Context, role string, content string, model anthropic.Model) (string, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Invoking Claude \"%s\"", roleTruncatedForTrace(role)))
 	defer trace.Stop()
 
@@ -104,7 +107,7 @@ func invokeClaude(role string, content string, model anthropic.Model) (string, e
 		params.System = []anthropic.TextBlockParam{{Text: role}}
 	}
 
-	resp, err := anthropicClient.Messages.New(context.Background(), params)
+	resp, err := anthropicClient.Messages.New(ctx, params)
 	if err != nil {
 		return "", err
 	}
@@ -154,22 +157,25 @@ type StructuredOutputSchema struct {
 //	}
 //
 // `
-func InvokeStructured(role string, content string, schema StructuredOutputSchema, model Model) (string, error) {
+// InvokeStructured runs a chat completion that must return JSON matching the
+// given schema. ctx is forwarded into the SDK call, so cancelling it aborts
+// the in-flight request.
+func InvokeStructured(ctx context.Context, role string, content string, schema StructuredOutputSchema, model Model) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGptStructured(role, content, schema, openai.ChatModel("gpt-5.5"))
+		return invokeGptStructured(ctx, role, content, schema, openai.ChatModel("gpt-5.5"))
 	case GptMini:
-		return invokeGptStructured(role, content, schema, openai.ChatModelGPT5_4Mini)
+		return invokeGptStructured(ctx, role, content, schema, openai.ChatModelGPT5_4Mini)
 	case ClaudeSonnet:
-		return invokeClaudeStructured(role, content, schema, anthropic.ModelClaudeSonnet4_6)
+		return invokeClaudeStructured(ctx, role, content, schema, anthropic.ModelClaudeSonnet4_6)
 	case ClaudeOpus:
-		return invokeClaudeStructured(role, content, schema, anthropic.ModelClaudeOpus4_7)
+		return invokeClaudeStructured(ctx, role, content, schema, anthropic.ModelClaudeOpus4_7)
 	default:
 		return "", fmt.Errorf("Unknown model")
 	}
 }
 
-func invokeGptStructured(role string, content string, schema StructuredOutputSchema, model openai.ChatModel) (string, error) {
+func invokeGptStructured(ctx context.Context, role string, content string, schema StructuredOutputSchema, model openai.ChatModel) (string, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Invoking Structured Gpt \"%s\" model=%v", roleTruncatedForTrace(role), model))
 	defer trace.Stop()
 
@@ -187,7 +193,7 @@ func invokeGptStructured(role string, content string, schema StructuredOutputSch
 	messages = append(messages, openai.UserMessage(content))
 
 	resp, err := openaiClient.Chat.Completions.New(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionNewParams{
 			Model:               model,
 			Messages:            messages,
@@ -220,7 +226,7 @@ func invokeGptStructured(role string, content string, schema StructuredOutputSch
 	return choice.Message.Content, nil
 }
 
-func invokeClaudeStructured(role string, content string, schema StructuredOutputSchema, model anthropic.Model) (string, error) {
+func invokeClaudeStructured(ctx context.Context, role string, content string, schema StructuredOutputSchema, model anthropic.Model) (string, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Invoking Structured Claude \"%s\" model=%v", roleTruncatedForTrace(role), model))
 	defer trace.Stop()
 
@@ -247,7 +253,7 @@ func invokeClaudeStructured(role string, content string, schema StructuredOutput
 		params.System = []anthropic.TextBlockParam{{Text: role}}
 	}
 
-	resp, err := anthropicClient.Messages.New(context.Background(), params)
+	resp, err := anthropicClient.Messages.New(ctx, params)
 	if err != nil {
 		return "", err
 	}
@@ -279,8 +285,9 @@ type ImageInput struct {
 // InvokeStructuredWithImages sends a multimodal request (text + N images) and
 // asks the model to respond with JSON matching the given schema. Currently
 // only the OpenAI vision-capable models (Gpt, GptMini) are supported; passing
-// any other model returns an error.
+// any other model returns an error. ctx is forwarded into the SDK call.
 func InvokeStructuredWithImages(
+	ctx context.Context,
 	role string,
 	content string,
 	images []ImageInput,
@@ -289,15 +296,16 @@ func InvokeStructuredWithImages(
 ) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGptStructuredWithImages(role, content, images, schema, openai.ChatModel("gpt-5.5"))
+		return invokeGptStructuredWithImages(ctx, role, content, images, schema, openai.ChatModel("gpt-5.5"))
 	case GptMini:
-		return invokeGptStructuredWithImages(role, content, images, schema, openai.ChatModelGPT5_4Mini)
+		return invokeGptStructuredWithImages(ctx, role, content, images, schema, openai.ChatModelGPT5_4Mini)
 	default:
 		return "", fmt.Errorf("model %q does not support image inputs", model)
 	}
 }
 
 func invokeGptStructuredWithImages(
+	ctx context.Context,
 	role string,
 	content string,
 	images []ImageInput,
@@ -343,7 +351,7 @@ func invokeGptStructuredWithImages(
 	}
 
 	resp, err := openaiClient.Chat.Completions.New(
-		context.Background(),
+		ctx,
 		openai.ChatCompletionNewParams{
 			Model:               model,
 			Messages:            messages,
@@ -380,7 +388,7 @@ func Test() {
 	println("Testing ChatGPT")
 	role := "You are a pirate."
 	content := "Greet me"
-	resp, err := Invoke(role, content, Gpt)
+	resp, err := Invoke(context.Background(), role, content, Gpt)
 	if err != nil {
 		panic(err)
 	}

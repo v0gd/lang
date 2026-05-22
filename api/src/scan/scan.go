@@ -6,6 +6,7 @@
 package scan
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -91,7 +92,9 @@ Handling of non-%[1]s fragments:
 // Scan OCRs the given images, builds a monolingual story in the target
 // language r and persists it with source='image'. Returns ErrNoTargetLanguage
 // if the images do not contain a meaningful amount of target-language text.
-func Scan(images []Image, r story.Locale, authorId string) (story.StoryMultilingual, error) {
+// ctx is forwarded into all downstream LLM calls so cancelling it aborts
+// every in-flight request in this pipeline.
+func Scan(ctx context.Context, images []Image, r story.Locale, authorId string) (story.StoryMultilingual, error) {
 	if len(images) == 0 {
 		return story.StoryMultilingual{}, fmt.Errorf("scan: no images provided")
 	}
@@ -109,6 +112,7 @@ func Scan(images []Image, r story.Locale, authorId string) (story.StoryMultiling
 	}
 
 	respJson, err := llm.InvokeStructuredWithImages(
+		ctx,
 		scanRolePrompt,
 		scanUserPrompt(targetLanguage, len(images)),
 		llmImages,
@@ -117,6 +121,9 @@ func Scan(images []Image, r story.Locale, authorId string) (story.StoryMultiling
 	)
 	if err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("scan: vision llm error: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return story.StoryMultilingual{}, err
 	}
 
 	var out scanLLMOutput
@@ -137,17 +144,26 @@ func Scan(images []Image, r story.Locale, authorId string) (story.StoryMultiling
 	// is still usable, just without gender coloring.
 	content := out.Content
 	if gender.Supports(r) {
-		annotated, aErr := gender.Annotate(content, r)
+		annotated, aErr := gender.Annotate(ctx, content, r)
 		if aErr != nil {
+			if errors.Is(aErr, context.Canceled) || errors.Is(aErr, context.DeadlineExceeded) || ctx.Err() != nil {
+				return story.StoryMultilingual{}, aErr
+			}
 			slog.Error(fmt.Sprintf("scan: gender.Annotate failed for %s: %v", r, aErr))
 		} else {
 			content = annotated
 		}
 	}
+	if err := ctx.Err(); err != nil {
+		return story.StoryMultilingual{}, err
+	}
 
-	structured, err := generator.ConvertMonolingualStoryToStructured(content)
+	structured, err := generator.ConvertMonolingualStoryToStructured(ctx, content)
 	if err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("scan: failed to structure scanned text: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
+		return story.StoryMultilingual{}, err
 	}
 	// out.Title comes from the OCR pass directly (no markers) and is
 	// preferred. The structurer-derived title can carry a marker when it
@@ -179,7 +195,10 @@ func Scan(images []Image, r story.Locale, authorId string) (story.StoryMultiling
 		Level: level,
 		R:     r,
 	}
-	if err := generator.Store(sMult, params, authorId, generator.SourceImage); err != nil {
+	if err := ctx.Err(); err != nil {
+		return story.StoryMultilingual{}, err
+	}
+	if err := generator.Store(ctx, sMult, params, authorId, generator.SourceImage); err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("scan: failed to persist scanned story: %w", err)
 	}
 	return sMult, nil

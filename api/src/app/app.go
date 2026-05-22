@@ -44,6 +44,17 @@ type handlerFuncWithAuth func(http.ResponseWriter, *http.Request, string) error
 func wrapError(h handlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		if err := h(w, req); err != nil {
+			// Client cancelled the in-flight request (e.g. tapped the
+			// "Cancel" button on the progress overlay, or just closed the
+			// tab). The LLM SDK calls return errors wrapping
+			// context.Canceled when this happens. The connection is
+			// already gone so writing a body is pointless, and dumping a
+			// stack-trace-style Error log for every cancellation drowns
+			// out real failures. Demote to Info.
+			if errors.Is(err, context.Canceled) || req.Context().Err() != nil {
+				slog.Info(fmt.Sprintf("Request cancelled by client: %v", err))
+				return
+			}
 			var httpErr *httpError
 			if errors.As(err, &httpErr) {
 				slog.Warn(fmt.Sprintf("Request error: %v", err))
@@ -447,7 +458,7 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 			LSentenceIdx: lIdx,
 			RSentenceIdx: rIdx,
 		}
-		expl, eErr := explanation.GetSentence(eId, lSentenceText, rSentenceText)
+		expl, eErr := explanation.GetSentence(req.Context(), eId, lSentenceText, rSentenceText)
 		if eErr != nil {
 			return fmt.Errorf("explanation.GetSentence error: %w", eErr)
 		}
@@ -465,7 +476,7 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 			RSentenceIdx: rIdx,
 			WordIdx:      wordIdx,
 		}
-		expl, eErr := explanation.GetWord(wId, lSentenceText, rSentenceText)
+		expl, eErr := explanation.GetWord(req.Context(), wId, lSentenceText, rSentenceText)
 		if eErr != nil {
 			return fmt.Errorf("explanation.GetWord error: %w", eErr)
 		}
@@ -570,7 +581,7 @@ func generateStoryHandler(w http.ResponseWriter, req *http.Request, uid string) 
 		Moods:  moodsFiltered,
 	}
 	// TODO: re-try a few times
-	s, err := generator.Generate(params, uid)
+	s, err := generator.Generate(req.Context(), params, uid)
 	if err != nil {
 		return fmt.Errorf("story.Generate error: %w", err)
 	}
@@ -659,7 +670,7 @@ func scanHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 
 	slog.Info(fmt.Sprintf("Scanning %d image(s) (%d bytes) for user %s -> %s", len(images), totalBytes, uid, r))
 
-	s, err := scan.Scan(images, r, uid)
+	s, err := scan.Scan(req.Context(), images, r, uid)
 	if err != nil {
 		if errors.Is(err, scan.ErrNoTargetLanguage) {
 			w.Header().Set("Content-Type", "application/json")
@@ -709,7 +720,7 @@ func uploadHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 
 	slog.Info(fmt.Sprintf("Uploading %d chars for user %s -> %s", len(body.Text), uid, r))
 
-	s, err := upload.Upload(body.Text, r, uid)
+	s, err := upload.Upload(req.Context(), body.Text, r, uid)
 	if err != nil {
 		switch {
 		case errors.Is(err, upload.ErrInputEmpty):
