@@ -12,11 +12,14 @@ export interface LocalizationStrings {
   settings_i_speak: string;
   settings_i_learn: string;
   close_button_caption: string;
+  cancel_button: string;
+  generate_overlay_message: string;
+  scan_overlay_message: string;
+  upload_overlay_message: string;
   my_stories_header: string;
   stories_header: string;
   generate_story_button: string;
   scan_button: string;
-  scan_in_progress: string;
   scan_no_target_text_error: string;
   scan_error: string;
   upload_button: string;
@@ -78,11 +81,14 @@ const strings = new Map<string, LocalizationStrings>([
       settings_i_speak: "I speak:",
       settings_i_learn: "I learn:",
       close_button_caption: "Close",
+      cancel_button: "Cancel",
+      generate_overlay_message: "Crafting your story",
+      scan_overlay_message: "Reading your page",
+      upload_overlay_message: "Polishing your text",
       my_stories_header: "My stories",
       stories_header: "Original stories",
       generate_story_button: "Create a new story",
       scan_button: "Scan",
-      scan_in_progress: "Scanning the page...",
       scan_no_target_text_error:
         "No text in your learned language was found in the image",
       scan_error: "Couldn't process the image — try again",
@@ -92,7 +98,7 @@ const strings = new Map<string, LocalizationStrings>([
       upload_textarea_heading: "PASTE A PASSAGE",
       upload_textarea_placeholder:
         "Paste a passage in the language you're learning — a letter, an article, a few pages of a book...",
-      upload_submit: "Create",
+      upload_submit: "Upload",
       upload_in_progress: "Processing...",
       upload_login_prompt: "Log in to upload your own text",
       upload_too_long: "Text is too long",
@@ -180,11 +186,14 @@ const strings = new Map<string, LocalizationStrings>([
       settings_i_speak: "Ich spreche:",
       settings_i_learn: "Ich lerne:",
       close_button_caption: "Schließen",
+      cancel_button: "Abbrechen",
+      generate_overlay_message: "Deine Geschichte wird gestaltet",
+      scan_overlay_message: "Deine Seite wird gelesen",
+      upload_overlay_message: "Dein Text wird aufbereitet",
       my_stories_header: "Meine Geschichten",
       stories_header: "Originalgeschichten",
       generate_story_button: "Neue Geschichte generieren",
       scan_button: "Scannen",
-      scan_in_progress: "Seite wird gescannt...",
       scan_no_target_text_error:
         "Im Bild wurde kein Text in deiner Lernsprache gefunden",
       scan_error: "Bild konnte nicht verarbeitet werden — bitte erneut versuchen",
@@ -194,7 +203,7 @@ const strings = new Map<string, LocalizationStrings>([
       upload_textarea_heading: "TEXT EINFÜGEN",
       upload_textarea_placeholder:
         "Füge einen Text in deiner Lernsprache ein — einen Brief, einen Artikel, ein paar Buchseiten...",
-      upload_submit: "Erstellen",
+      upload_submit: "Hochladen",
       upload_in_progress: "Wird verarbeitet...",
       upload_login_prompt: "Einloggen, um eigenen Text hochzuladen",
       upload_too_long: "Text ist zu lang",
@@ -283,11 +292,14 @@ const strings = new Map<string, LocalizationStrings>([
       settings_i_speak: "Я говорю на:",
       settings_i_learn: "Я учу:",
       close_button_caption: "Закрыть",
+      cancel_button: "Отмена",
+      generate_overlay_message: "Создаём вашу историю",
+      scan_overlay_message: "Читаем вашу страницу",
+      upload_overlay_message: "Обрабатываем ваш текст",
       my_stories_header: "Мои истории",
       stories_header: "Авторские истории",
       generate_story_button: "Сгенерировать новую историю",
       scan_button: "Сканировать",
-      scan_in_progress: "Сканирование страницы...",
       scan_no_target_text_error:
         "На изображении не найден текст на изучаемом языке",
       scan_error: "Не удалось обработать изображение — попробуйте ещё раз",
@@ -297,7 +309,7 @@ const strings = new Map<string, LocalizationStrings>([
       upload_textarea_heading: "ВСТАВЬТЕ ОТРЫВОК",
       upload_textarea_placeholder:
         "Вставьте текст на изучаемом языке — письмо, статью, несколько страниц книги...",
-      upload_submit: "Создать",
+      upload_submit: "Загрузить",
       upload_in_progress: "Обработка...",
       upload_login_prompt: "Войдите, чтобы загрузить свой текст",
       upload_too_long: "Текст слишком длинный",

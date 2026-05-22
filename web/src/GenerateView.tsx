@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useGenerateStoryMutation } from "./queries";
+import { CancelledError, useGenerateStoryMutation } from "./queries";
 import { useLoggedIn } from "./firebase";
 import { lstr } from "./localization";
+import { ProgressOverlay } from "./ProgressOverlay";
+import { FaWandMagicSparkles } from "react-icons/fa6";
 
 export const levels = ["A1", "B1", "C1"] as const;
 export const moods = [
@@ -67,6 +69,23 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
   const navigate = useNavigate();
   const generate = useGenerateStoryMutation();
   const loggedIn = useLoggedIn();
+  // One AbortController per in-flight request so the cancel button on the
+  // overlay can tear down the fetch cleanly. The ref is reset just before
+  // each new request so a previous cancellation never poisons a fresh run.
+  const abortRef = useRef<AbortController | null>(null);
+
+  const cancelGenerate = () => {
+    abortRef.current?.abort();
+  };
+
+  // When the user cancels we get a CancelledError from the mutation - reset
+  // it to idle so the user can immediately retry without the button stuck on
+  // an error state.
+  useEffect(() => {
+    if (generate.isError && generate.error instanceof CancelledError) {
+      generate.reset();
+    }
+  }, [generate.isError, generate.error, generate]);
 
   const toggleFromList = (
     item: string,
@@ -89,12 +108,14 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
     }
     if (!selectedLevel) return;
     if (!generate.isIdle) return;
+    abortRef.current = new AbortController();
     generate.mutate({
       l: l,
       r: r,
       level: selectedLevel,
       moods: selectedMoods,
       topics: selectedTopics,
+      signal: abortRef.current.signal,
     });
   };
 
@@ -133,6 +154,14 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
 
   return (
     <div className="flex flex-col gap-10">
+      {generate.isPending && (
+        <ProgressOverlay
+          l={l}
+          message={strings.generate_overlay_message}
+          icon={<FaWandMagicSparkles />}
+          onCancel={cancelGenerate}
+        />
+      )}
       <header>
         <h1 className="font-literata text-3xl md:text-4xl font-bold tracking-tight text-main-text leading-tight">
           {strings.generate_title_pre}{" "}

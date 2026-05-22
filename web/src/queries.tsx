@@ -76,6 +76,30 @@ export class NotFoundError {}
 // text. The UI uses this to show a specific message instead of a generic one.
 export class NoTargetLanguageError {}
 
+// Thrown by the three long-running mutations (generate/scan/upload) when the
+// caller aborts the AbortController. We surface this as a typed error so the
+// view can silently reset the mutation state instead of showing a generic
+// "something went wrong" message. NOTE: aborting only cancels the HTTP
+// request on the client side; the backend may continue processing for a few
+// seconds (current LLM calls are not yet plumbed with request context).
+export class CancelledError {}
+
+// isAbortError detects the DOMException that fetch() throws when its signal
+// is aborted. We accept both the DOMException form (modern browsers) and the
+// legacy `error.name === "AbortError"` form for safety.
+function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === "AbortError") return true;
+  if (
+    err &&
+    typeof err === "object" &&
+    "name" in err &&
+    (err as { name?: unknown }).name === "AbortError"
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // Thrown by useUploadMutation when the prompt-injection gate flags the input.
 export class PromptInjectionError {}
 
@@ -127,6 +151,7 @@ export function useGenerateStoryMutation() {
       level,
       moods,
       topics,
+      signal,
     }: {
       // l is the optional mother-tongue locale; omit it (empty string) to
       // generate a story only in the learned language.
@@ -135,6 +160,8 @@ export function useGenerateStoryMutation() {
       level: string;
       moods: string[];
       topics: string[];
+      // Optional AbortSignal so the caller can cancel the in-flight request.
+      signal?: AbortSignal;
     }) => {
       const moodStr = moods.join(",");
       const topicStr = topics.join(",");
@@ -148,27 +175,26 @@ export function useGenerateStoryMutation() {
       url.searchParams.append("moods", moodStr);
       url.searchParams.append("topics", topicStr);
 
-      const params = fetchParamsWithAuth("POST");
-
-      return params.then((params) => {
-        return fetch(url, params).then((res) => {
-          queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
-          if (res.ok) {
-            return res.json().then((obj) => {
-              return {
-                id: obj.id,
-                localizations: new Map(Object.entries(obj.localizations)),
-              };
-            });
-          } else if (res.status === 404) {
-            throw new NotFoundError();
-          } else {
-            console.error("Unexpected result for", url);
-            console.error(res);
-            throw new Error("Unexpected result for story generate mutation");
-          }
-        });
-      });
+      const params = await fetchParamsWithAuth("POST");
+      try {
+        const res = await fetch(url, { ...params, signal });
+        queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
+        if (res.ok) {
+          const obj = await res.json();
+          return {
+            id: obj.id,
+            localizations: new Map(Object.entries(obj.localizations)),
+          };
+        } else if (res.status === 404) {
+          throw new NotFoundError();
+        } else {
+          console.error("Unexpected result for", url, res);
+          throw new Error("Unexpected result for story generate mutation");
+        }
+      } catch (err) {
+        if (isAbortError(err)) throw new CancelledError();
+        throw err;
+      }
     },
     retry: false,
   });
@@ -180,9 +206,11 @@ export function useScanMutation() {
     mutationFn: async ({
       images,
       r,
+      signal,
     }: {
       images: File[];
       r: string;
+      signal?: AbortSignal;
     }) => {
       if (images.length === 0) {
         throw new Error("No images selected for scan");
@@ -196,31 +224,37 @@ export function useScanMutation() {
       const url = apiUrl("/scan");
       url.searchParams.append("r", r);
       const token = await getAuthToken();
-      // Note: do NOT set Content-Type manually here - the browser must add the
-      // multipart boundary to the header.
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData,
-      });
-      queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
+      try {
+        // Note: do NOT set Content-Type manually here - the browser must add
+        // the multipart boundary to the header.
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData,
+          signal,
+        });
+        queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
 
-      if (res.status === 422) {
-        const body = await res.json().catch(() => null);
-        if (body && body.error === "no_target_language") {
-          throw new NoTargetLanguageError();
+        if (res.status === 422) {
+          const body = await res.json().catch(() => null);
+          if (body && body.error === "no_target_language") {
+            throw new NoTargetLanguageError();
+          }
+          throw new Error("Unexpected 422 result for scan");
         }
-        throw new Error("Unexpected 422 result for scan");
+        if (!res.ok) {
+          console.error("Unexpected result for", url, res);
+          throw new Error("Unexpected result for scan mutation");
+        }
+        const obj = await res.json();
+        return {
+          id: obj.id as string,
+          localizations: new Map(Object.entries(obj.localizations)),
+        };
+      } catch (err) {
+        if (isAbortError(err)) throw new CancelledError();
+        throw err;
       }
-      if (!res.ok) {
-        console.error("Unexpected result for", url, res);
-        throw new Error("Unexpected result for scan mutation");
-      }
-      const obj = await res.json();
-      return {
-        id: obj.id as string,
-        localizations: new Map(Object.entries(obj.localizations)),
-      };
     },
     retry: false,
   });
@@ -233,37 +267,52 @@ export function useScanMutation() {
 export function useUploadMutation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ text, r }: { text: string; r: string }) => {
+    mutationFn: async ({
+      text,
+      r,
+      signal,
+    }: {
+      text: string;
+      r: string;
+      signal?: AbortSignal;
+    }) => {
       const url = apiUrl("/upload");
       url.searchParams.append("r", r);
       const token = await getAuthToken();
-      const res = await fetch(url, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text }),
-      });
-      queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ text }),
+          signal,
+        });
+        queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
 
-      if (res.status === 422) {
-        const body = await res.json().catch(() => null);
-        const code = body && typeof body.error === "string" ? body.error : "";
-        if (code === "prompt_injection") throw new PromptInjectionError();
-        if (code === "disallowed_content") throw new DisallowedContentError();
-        if (code === "no_target_language") throw new NoTargetLanguageError();
-        throw new Error("Unexpected 422 result for upload");
+        if (res.status === 422) {
+          const body = await res.json().catch(() => null);
+          const code = body && typeof body.error === "string" ? body.error : "";
+          if (code === "prompt_injection") throw new PromptInjectionError();
+          if (code === "disallowed_content")
+            throw new DisallowedContentError();
+          if (code === "no_target_language") throw new NoTargetLanguageError();
+          throw new Error("Unexpected 422 result for upload");
+        }
+        if (!res.ok) {
+          console.error("Unexpected result for", url, res);
+          throw new Error("Unexpected result for upload mutation");
+        }
+        const obj = await res.json();
+        return {
+          id: obj.id as string,
+          localizations: new Map(Object.entries(obj.localizations)),
+        };
+      } catch (err) {
+        if (isAbortError(err)) throw new CancelledError();
+        throw err;
       }
-      if (!res.ok) {
-        console.error("Unexpected result for", url, res);
-        throw new Error("Unexpected result for upload mutation");
-      }
-      const obj = await res.json();
-      return {
-        id: obj.id as string,
-        localizations: new Map(Object.entries(obj.localizations)),
-      };
     },
     retry: false,
   });

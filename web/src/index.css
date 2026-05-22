@@ -90,3 +90,68 @@ input[type="checkbox"]:focus-visible {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
 }
+
+/* Progress overlay animations.
+ *
+ * The overlay shows three layered loops at different frequencies so the eye
+ * always has motion to track, but no single element draws too much attention:
+ *
+ *  - .animate-progress-orbit: slow 360deg rotation (3.5s) of the sparkle
+ *    ring around the icon.
+ *  - .animate-progress-breathe: gentle scale 1.0 -> 1.08 -> 1.0 (1.8s) for
+ *    the central icon, giving it a "thinking" feel.
+ *  - .animate-progress-halo: pulsing opacity + scale on the primary-tinted
+ *    halo behind the icon (2.4s).
+ *  - .animate-progress-dot-{1,2,3}: staggered opacity blinks for the
+ *    trailing "..." after the status message.
+ */
+@keyframes progress-orbit {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes progress-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+@keyframes progress-halo {
+  0%, 100% { transform: scale(0.92); opacity: 0.55; }
+  50% { transform: scale(1.08); opacity: 0.9; }
+}
+@keyframes progress-dot {
+  0%, 100% { opacity: 0.2; }
+  50% { opacity: 1; }
+}
+
+.animate-progress-orbit {
+  animation: progress-orbit 3.5s linear infinite;
+}
+.animate-progress-breathe {
+  display: inline-block;
+  animation: progress-breathe 1.8s ease-in-out infinite;
+}
+.animate-progress-halo {
+  animation: progress-halo 2.4s ease-in-out infinite;
+}
+.animate-progress-dot-1 {
+  animation: progress-dot 1.2s ease-in-out infinite;
+  animation-delay: 0s;
+}
+.animate-progress-dot-2 {
+  animation: progress-dot 1.2s ease-in-out infinite;
+  animation-delay: 0.2s;
+}
+.animate-progress-dot-3 {
+  animation: progress-dot 1.2s ease-in-out infinite;
+  animation-delay: 0.4s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-progress-orbit,
+  .animate-progress-breathe,
+  .animate-progress-halo,
+  .animate-progress-dot-1,
+  .animate-progress-dot-2,
+  .animate-progress-dot-3 {
+    animation: none;
+  }
+}

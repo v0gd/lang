@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  CancelledError,
   NoTargetLanguageError,
   useDeleteStoryMutation,
   useGeneratedStoryListQuery,
@@ -18,6 +19,7 @@ import { StoryDescriptor } from "./story";
 import getFlagEmoji from "./LanguageFlag";
 import { Modal } from "./Modal";
 import { useLoggedIn } from "./firebase";
+import { ProgressOverlay } from "./ProgressOverlay";
 
 function Button({
   children,
@@ -144,26 +146,6 @@ function UploadButton({ l, onPressed }: { l: string; onPressed: () => void }) {
           {lstr(l).upload_button}
         </div>
       </button>
-    </div>
-  );
-}
-
-// ScanProgressOverlay shows a non-dismissable overlay while the /scan request
-// is in flight. We deliberately do NOT use the existing Modal component for
-// the in-flight state - the user must wait for the LLM round-trip and a close
-// button would just confuse them.
-function ScanProgressOverlay({ l }: { l: string }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-surface border border-border rounded-2xl px-6 py-5 flex items-center gap-3 shadow-xl">
-        <span
-          aria-hidden
-          className="inline-block w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"
-        />
-        <span className="font-semibold text-main-text">
-          {lstr(l).scan_in_progress}
-        </span>
-      </div>
     </div>
   );
 }
@@ -299,6 +281,7 @@ export function StoryMenu({
   const queryGenerated = useGeneratedStoryListQuery(l, r);
   const deleteMutation = useDeleteStoryMutation();
   const scanMutation = useScanMutation();
+  const scanAbortRef = useRef<AbortController | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [scanErrorMessage, setScanErrorMessage] = useState<string | null>(null);
 
@@ -316,7 +299,16 @@ export function StoryMenu({
     }
     if (scanMutation.isPending) return;
     setScanErrorMessage(null);
-    scanMutation.mutate({ images: files, r });
+    scanAbortRef.current = new AbortController();
+    scanMutation.mutate({
+      images: files,
+      r,
+      signal: scanAbortRef.current.signal,
+    });
+  };
+
+  const cancelScan = () => {
+    scanAbortRef.current?.abort();
   };
 
   // Pump scan results into navigation / error UI. Doing this in an effect
@@ -332,6 +324,12 @@ export function StoryMenu({
 
   useEffect(() => {
     if (scanMutation.isError) {
+      // User-initiated cancellation isn't a real error - silently reset so
+      // the next scan attempt can happen without a stray error toast.
+      if (scanMutation.error instanceof CancelledError) {
+        scanMutation.reset();
+        return;
+      }
       const message =
         scanMutation.error instanceof NoTargetLanguageError
           ? lstr(l).scan_no_target_text_error
@@ -382,7 +380,14 @@ export function StoryMenu({
         </Modal>
       )}
 
-      {scanMutation.isPending && <ScanProgressOverlay l={l} />}
+      {scanMutation.isPending && (
+        <ProgressOverlay
+          l={l}
+          message={lstr(l).scan_overlay_message}
+          icon={<FaCamera />}
+          onCancel={cancelScan}
+        />
+      )}
 
       {scanErrorMessage && (
         <Modal

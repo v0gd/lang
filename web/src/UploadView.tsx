@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  CancelledError,
   DisallowedContentError,
   NoTargetLanguageError,
   PromptInjectionError,
@@ -8,6 +9,8 @@ import {
 } from "./queries";
 import { useLoggedIn } from "./firebase";
 import { lstr } from "./localization";
+import { ProgressOverlay } from "./ProgressOverlay";
+import { FaPenToSquare } from "react-icons/fa6";
 
 // MAX_CHARS mirrors upload.MaxInputChars on the Go side; the backend
 // re-validates with utf8.RuneCountInString so any client-side bypass is
@@ -19,6 +22,7 @@ export function UploadView({ l, r }: { l: string; r: string }) {
   const navigate = useNavigate();
   const upload = useUploadMutation();
   const loggedIn = useLoggedIn();
+  const abortRef = useRef<AbortController | null>(null);
 
   // UI chrome is rendered in the user's mother tongue (`l`), same convention
   // as the rest of the app. `r` is only used for the actual upload request.
@@ -32,7 +36,12 @@ export function UploadView({ l, r }: { l: string; r: string }) {
     if (!upload.isIdle) return;
     const trimmed = text.trim();
     if (trimmed === "") return;
-    upload.mutate({ text: trimmed, r });
+    abortRef.current = new AbortController();
+    upload.mutate({ text: trimmed, r, signal: abortRef.current.signal });
+  };
+
+  const cancelUpload = () => {
+    abortRef.current?.abort();
   };
 
   useEffect(() => {
@@ -40,6 +49,15 @@ export function UploadView({ l, r }: { l: string; r: string }) {
       navigate(`/generated/${upload.data.id}`);
     }
   }, [upload.isSuccess, upload.data, navigate]);
+
+  // Treat cancellation as a silent reset - same pattern as generate/scan -
+  // so the textarea stays editable and the button label returns to "Upload"
+  // instead of an error state.
+  useEffect(() => {
+    if (upload.isError && upload.error instanceof CancelledError) {
+      upload.reset();
+    }
+  }, [upload.isError, upload.error, upload]);
 
   const sectionLabel =
     "text-xs font-semibold uppercase tracking-[0.2em] leading-none text-secondary-text";
@@ -81,6 +99,14 @@ export function UploadView({ l, r }: { l: string; r: string }) {
 
   return (
     <div className="flex flex-col gap-8">
+      {upload.isPending && (
+        <ProgressOverlay
+          l={l}
+          message={strings.upload_overlay_message}
+          icon={<FaPenToSquare />}
+          onCancel={cancelUpload}
+        />
+      )}
       <header>
         <h1 className="font-literata text-3xl md:text-4xl font-bold tracking-tight text-main-text leading-tight">
           {strings.upload_title_pre}{" "}
