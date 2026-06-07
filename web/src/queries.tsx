@@ -361,6 +361,11 @@ function markWordSavedInCache(
   );
 }
 
+// SAVE_WORD_LIMIT_ERROR is the Error message thrown by useSaveWordMutation when
+// the backend rejects a save because the user hit their saved-word cap (HTTP
+// 409). The UI checks for it to show a specific "limit reached" message.
+export const SAVE_WORD_LIMIT_ERROR = "save-word-limit-reached";
+
 // useSaveWordMutation adds an already-ingested dictionary sense to the user's
 // saved-word list. The dictionary entry was created when the word's explanation
 // was generated; here we just send its id plus the spoken language l (used to
@@ -384,6 +389,11 @@ export function useSaveWordMutation() {
       const params = await fetchParamsWithAuth("POST");
       const res = await fetch(url, params);
       if (!res.ok) {
+        // 409 means the per-user saved-word cap is reached; surface it as a
+        // distinct, actionable message instead of the generic save error.
+        if (res.status === 409) {
+          throw new Error(SAVE_WORD_LIMIT_ERROR);
+        }
         console.error("Unexpected result for", url, res);
         throw new Error("Unexpected result for save-word mutation");
       }

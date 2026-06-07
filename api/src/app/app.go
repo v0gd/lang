@@ -811,6 +811,11 @@ func saveWordHandler(w http.ResponseWriter, req *http.Request, u user.User) erro
 
 	slog.Info(fmt.Sprintf("Saving dictionary entry %d for user %s (l=%s)", entryId, u.FirebaseUid, l))
 	if err := dictionary.SaveForUser(req.Context(), u.Id, entryId, l); err != nil {
+		if errors.Is(err, dictionary.ErrSavedWordLimitReached) {
+			return newHTTPError(http.StatusConflict,
+				"Saved word limit of %d reached. Remove some words before saving more.",
+				dictionary.MaxSavedWordsPerUser)
+		}
 		return fmt.Errorf("dictionary.SaveForUser error: %w", err)
 	}
 	return writeJSON(w, map[string]any{"entry_id": entryId})

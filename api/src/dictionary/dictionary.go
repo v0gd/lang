@@ -99,6 +99,7 @@ var (
 	upsertLocalizationStmt *sql.Stmt
 	insertUserWordStmt     *sql.Stmt
 	userWordExistsStmt     *sql.Stmt
+	countUserWordsStmt     *sql.Stmt
 	deleteUserWordStmt     *sql.Stmt
 	listUserWordsStmt      *sql.Stmt
 )
@@ -106,6 +107,17 @@ var (
 // MyDictionaryPageSize is the number of saved words returned per page by
 // ListForUser.
 const MyDictionaryPageSize = 100
+
+// MaxSavedWordsPerUser caps how many words one user may keep in their saved-word
+// list (across all learned languages). It bounds storage and the cost of the
+// background localization jobs per account. Re-saving a word already in the list
+// is idempotent and does not count against this limit.
+const MaxSavedWordsPerUser = 1000
+
+// ErrSavedWordLimitReached is returned by SaveForUser when the user is already
+// at MaxSavedWordsPerUser and tries to save a new word. Callers should surface
+// it as a client error, not an internal failure.
+var ErrSavedWordLimitReached = errors.New("saved word limit reached")
 
 func Setup() {
 	var err error
@@ -150,6 +162,11 @@ func Setup() {
 	}
 	userWordExistsStmt, err = db.Db.Prepare(
 		"SELECT 1 FROM user_dictionary_word WHERE user_id = ? AND dictionary_entry_id = ?;")
+	if err != nil {
+		panic(err)
+	}
+	countUserWordsStmt, err = db.Db.Prepare(
+		"SELECT COUNT(*) FROM user_dictionary_word WHERE user_id = ?;")
 	if err != nil {
 		panic(err)
 	}
@@ -352,11 +369,39 @@ func loadSenses(ctx context.Context, r, canonicalForm string) ([]existingSense, 
 // language l. It returns as soon as the user reference is written; the
 // localization is best-effort and deduplicated by a global (entry, l) registry.
 func SaveForUser(ctx context.Context, userId, entryId int64, l string) error {
+	// Re-saving a word already in the list is idempotent and must stay allowed
+	// even at the cap; only genuinely new words count against the limit. The
+	// check-then-insert is not atomic, so a burst of concurrent saves from one
+	// account could overshoot the cap slightly - acceptable for a soft limit.
+	saved, err := IsSavedForUser(ctx, userId, entryId)
+	if err != nil {
+		return err
+	}
+	if !saved {
+		count, err := countSavedForUser(ctx, userId)
+		if err != nil {
+			return err
+		}
+		if count >= MaxSavedWordsPerUser {
+			return ErrSavedWordLimitReached
+		}
+	}
+
 	if _, err := insertUserWordStmt.ExecContext(ctx, userId, entryId); err != nil {
 		return fmt.Errorf("failed to save word %d for user %d: %w", entryId, userId, err)
 	}
 	triggerLocalization(entryId, l)
 	return nil
+}
+
+// countSavedForUser returns how many words userId currently has saved across all
+// learned languages.
+func countSavedForUser(ctx context.Context, userId int64) (int, error) {
+	var count int
+	if err := countUserWordsStmt.QueryRowContext(ctx, userId).Scan(&count); err != nil {
+		return 0, fmt.Errorf("failed to count saved words for user %d: %w", userId, err)
+	}
+	return count, nil
 }
 
 // RemoveForUser removes entryId from userId's saved-word list. It is a no-op if

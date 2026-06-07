@@ -12,6 +12,7 @@ export interface LocalizationStrings {
   saving_word: string;
   word_saved: string;
   save_word_error: string;
+  save_word_limit_error: string;
   remove_word_button: string;
   removing_word: string;
   remove_word_error: string;
@@ -98,6 +99,8 @@ const strings = new Map<string, LocalizationStrings>([
       saving_word: "Saving...",
       word_saved: "Saved",
       save_word_error: "Couldn't save — try again",
+      save_word_limit_error:
+        "Dictionary full (1000 words) — remove some to save more",
       remove_word_button: "Remove from my dictionary",
       removing_word: "Removing...",
       remove_word_error: "Couldn't remove — try again",
@@ -221,6 +224,8 @@ const strings = new Map<string, LocalizationStrings>([
       saving_word: "Wird gespeichert...",
       word_saved: "Gespeichert",
       save_word_error: "Speichern fehlgeschlagen — bitte erneut versuchen",
+      save_word_limit_error:
+        "Wörterbuch voll (1000 Wörter) — bitte einige entfernen",
       remove_word_button: "Aus meinem Wörterbuch entfernen",
       removing_word: "Wird entfernt...",
       remove_word_error: "Entfernen fehlgeschlagen — bitte erneut versuchen",
@@ -346,6 +351,8 @@ const strings = new Map<string, LocalizationStrings>([
       saving_word: "Сохранение...",
       word_saved: "Сохранено",
       save_word_error: "Не удалось сохранить — попробуйте ещё раз",
+      save_word_limit_error:
+        "Словарь заполнен (1000 слов) — удалите часть, чтобы добавить ещё",
       remove_word_button: "Удалить из моего словаря",
       removing_word: "Удаление...",
       remove_word_error: "Не удалось удалить — попробуйте ещё раз",

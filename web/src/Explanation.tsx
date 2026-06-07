@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Sentence } from "./story";
 import {
+  SAVE_WORD_LIMIT_ERROR,
   useExplainQuery,
   useRemoveWordMutation,
   useSaveWordMutation,
@@ -262,7 +263,11 @@ function SaveWordButton({
           : lstr(l).save_word_button}
       </button>
       {saveMutation.isError && (
-        <span className="text-sm text-red-600">{lstr(l).save_word_error}</span>
+        <span className="text-sm text-red-600">
+          {saveMutation.error.message === SAVE_WORD_LIMIT_ERROR
+            ? lstr(l).save_word_limit_error
+            : lstr(l).save_word_error}
+        </span>
       )}
     </div>
   );
