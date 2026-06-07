@@ -4,6 +4,7 @@ import (
 	"lang/api/app"
 	"lang/api/cache"
 	"lang/api/db"
+	"lang/api/dictionary"
 	"lang/api/explanation"
 	"lang/api/firebase"
 	"lang/api/generator"
@@ -19,6 +20,7 @@ func main() {
 	user.Setup()
 	generator.Setup()
 	explanation.Setup()
+	dictionary.Setup()
 	tts.Setup()
 	log.Fatal(app.Serve())
 	// llm.Test()

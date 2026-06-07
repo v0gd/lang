@@ -47,8 +47,14 @@ CREATE TABLE word_explanation (
     l_sentence_idx INT NOT NULL,
     r_sentence_idx INT NOT NULL,
     word_idx INT NOT NULL,
-    content TEXT NOT NULL,
-    PRIMARY KEY (story_id, l, r, l_sentence_idx, r_sentence_idx, word_idx)
+    content TEXT NOT NULL,                          -- human-readable explanation shown in the popup
+    -- The global dictionary sense this word was resolved to when the
+    -- explanation was generated (analyze + dedupe + save). Nullable because not
+    -- every clicked word ends up in the dictionary. The Save button is only
+    -- shown when this is set.
+    dictionary_entry_id BIGINT UNSIGNED NULL,
+    PRIMARY KEY (story_id, l, r, l_sentence_idx, r_sentence_idx, word_idx),
+    FOREIGN KEY (dictionary_entry_id) REFERENCES dictionary_entry(id)
 );
 
 CREATE TABLE user (
@@ -72,14 +78,13 @@ CREATE TABLE dictionary_entry (
     display_form   VARCHAR(256) NOT NULL,   -- "die Bank" (shown to the user)
 
     part_of_speech ENUM('noun','verb','adjective','adverb','pronoun',
-                        'preposition','conjunction','interjection','phrase','other') NOT NULL,
+                        'preposition','conjunction','interjection','other') NOT NULL,
 
     -- Short English meaning, used only for sense identity/deduplication (code-side),
     -- never displayed to the user.
     meaning_fingerprint VARCHAR(512) NOT NULL,
 
-    gender ENUM('masculine','feminine','neuter','none') NOT NULL DEFAULT 'none',  -- 'none' for non-nouns
-    plural_form VARCHAR(256) NULL,           -- nouns only; NULL when not applicable
+    gender ENUM('masculine','feminine','neuter','none') NOT NULL DEFAULT 'none',
 
     examples JSON NOT NULL,                  -- array of example sentences in the learned language
 

@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Sentence } from "./story";
-import { useExplainQuery, useWordExplainQuery } from "./queries";
+import {
+  useExplainQuery,
+  useRemoveWordMutation,
+  useSaveWordMutation,
+  useWordExplainQuery,
+} from "./queries";
 import { API_URL } from "./config";
+import { isLoggedIn } from "./firebase";
 import { Modal } from "./Modal";
 import { lstr } from "./localization";
 
@@ -174,8 +180,89 @@ export function WordExplanationPopup({
       )}
       {query.isSuccess && (
         <p className="text-sm text-main-text leading-relaxed select-text">
-          {query.data}
+          {query.data.content}
         </p>
+      )}
+      {query.isSuccess && query.data.dictionaryEntryId !== null && (
+        <SaveWordButton
+          l={l}
+          dictionaryEntryId={query.data.dictionaryEntryId}
+          alreadySaved={query.data.alreadySaved}
+        />
+      )}
+    </div>
+  );
+}
+
+// SaveWordButton toggles the (already-ingested) dictionary sense in the user's
+// saved-word list. It is only shown to logged-in users, since saving requires
+// auth. Saving returns immediately; the localized description is produced in
+// the background server-side. Removing drops only the user's reference, leaving
+// the global dictionary entry intact.
+function SaveWordButton({
+  l,
+  dictionaryEntryId,
+  alreadySaved,
+}: {
+  l: string;
+  dictionaryEntryId: number;
+  alreadySaved: boolean;
+}) {
+  const saveMutation = useSaveWordMutation();
+  const removeMutation = useRemoveWordMutation();
+
+  if (!isLoggedIn()) {
+    return null;
+  }
+
+  // alreadySaved comes from the explain query, which both save and remove keep
+  // up to date in the query cache, so this stays correct across popup reopens.
+  if (alreadySaved) {
+    return (
+      <div className="mt-3 flex items-center gap-3">
+        <span className="flex items-center gap-1.5 text-sm font-medium text-primary">
+          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path
+              fillRule="evenodd"
+              d="M16.7 5.3a1 1 0 010 1.4l-7.5 7.5a1 1 0 01-1.4 0L3.3 9.7a1 1 0 011.4-1.4l3.1 3.1 6.8-6.8a1 1 0 011.4 0z"
+              clipRule="evenodd"
+            />
+          </svg>
+          {lstr(l).word_saved}
+        </span>
+        <button
+          type="button"
+          disabled={removeMutation.isPending}
+          onClick={() => removeMutation.mutate({ dictionaryEntryId })}
+          className="text-sm font-medium text-secondary-text hover:text-red-600 transition-colors disabled:opacity-50"
+        >
+          {removeMutation.isPending
+            ? lstr(l).removing_word
+            : lstr(l).remove_word_button}
+        </button>
+        {removeMutation.isError && (
+          <span className="text-sm text-red-600">
+            {lstr(l).remove_word_error}
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-3 flex items-center gap-2">
+      <button
+        type="button"
+        disabled={saveMutation.isPending}
+        onClick={() => saveMutation.mutate({ dictionaryEntryId, l })}
+        className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+      >
+        {saveMutation.isPending
+          ? lstr(l).saving_word
+          : lstr(l).save_word_button}
+      </button>
+      {saveMutation.isError && (
+        <span className="text-sm text-red-600">{lstr(l).save_word_error}</span>
       )}
     </div>
   );

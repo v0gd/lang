@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"lang/api/dictionary"
 	"lang/api/explanation"
 	"lang/api/firebase"
 	"lang/api/gender"
@@ -418,7 +419,7 @@ func getStoryHandler(w http.ResponseWriter, req *http.Request) error {
 	return writeJSON(w, dict)
 }
 
-func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
+func getExplanationHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
 	storyID, err := mustExtractParam(req, "story_id")
 	if err != nil {
 		return err
@@ -489,7 +490,27 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request) error {
 		if eErr != nil {
 			return fmt.Errorf("explanation.GetWord error: %w", eErr)
 		}
-		return writeJSON(w, map[string]any{"content": expl.Content})
+		// dictionary_entry_id is null when the word wasn't ingested into the
+		// dictionary; the frontend uses it to decide whether to show "Save".
+		// already_saved tells whether the word is already in the user's saved
+		// list, so the popup renders the button as already-saved. We do the
+		// analyze+dedupe here anyway, so this is just one extra indexed lookup
+		// on the resolved entry.
+		var dictionaryEntryId any
+		alreadySaved := false
+		if expl.DictionaryEntryId.Valid {
+			dictionaryEntryId = expl.DictionaryEntryId.Int64
+			saved, sErr := dictionary.IsSavedForUser(req.Context(), u.Id, expl.DictionaryEntryId.Int64)
+			if sErr != nil {
+				return fmt.Errorf("dictionary.IsSavedForUser error: %w", sErr)
+			}
+			alreadySaved = saved
+		}
+		return writeJSON(w, map[string]any{
+			"content":             expl.Content,
+			"dictionary_entry_id": dictionaryEntryId,
+			"already_saved":       alreadySaved,
+		})
 	}
 }
 
@@ -768,6 +789,53 @@ func deleteGeneratedStoryHandler(w http.ResponseWriter, req *http.Request, u use
 	return nil
 }
 
+// saveWordHandler adds an already-ingested dictionary sense to the user's
+// saved-word list. The dictionary_entry_id was produced when the word's
+// explanation was generated (analyze + dedupe + save) and handed to the client,
+// which only shows the Save button when it is set. Saving records the user
+// reference and triggers a background job to produce the entry's description in
+// the user's spoken language; it returns immediately.
+func saveWordHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
+	l, err := mustExtractLocaleParam(req, "l")
+	if err != nil {
+		return err
+	}
+	entryIdStr, err := mustExtractParam(req, "dictionary_entry_id")
+	if err != nil {
+		return err
+	}
+	entryId, convErr := strconv.ParseInt(entryIdStr, 10, 64)
+	if convErr != nil || entryId <= 0 {
+		return newHTTPError(http.StatusBadRequest, "Invalid 'dictionary_entry_id' parameter: '%s'", entryIdStr)
+	}
+
+	slog.Info(fmt.Sprintf("Saving dictionary entry %d for user %s (l=%s)", entryId, u.FirebaseUid, l))
+	if err := dictionary.SaveForUser(req.Context(), u.Id, entryId, l); err != nil {
+		return fmt.Errorf("dictionary.SaveForUser error: %w", err)
+	}
+	return writeJSON(w, map[string]any{"entry_id": entryId})
+}
+
+// removeWordHandler removes a dictionary sense from the user's saved-word list.
+// The global dictionary entry is left intact; only the user's reference is
+// dropped. Removing a word that isn't saved is a successful no-op.
+func removeWordHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
+	entryIdStr, err := mustExtractParam(req, "dictionary_entry_id")
+	if err != nil {
+		return err
+	}
+	entryId, convErr := strconv.ParseInt(entryIdStr, 10, 64)
+	if convErr != nil || entryId <= 0 {
+		return newHTTPError(http.StatusBadRequest, "Invalid 'dictionary_entry_id' parameter: '%s'", entryIdStr)
+	}
+
+	slog.Info(fmt.Sprintf("Removing dictionary entry %d for user %s", entryId, u.FirebaseUid))
+	if err := dictionary.RemoveForUser(req.Context(), u.Id, entryId); err != nil {
+		return fmt.Errorf("dictionary.RemoveForUser error: %w", err)
+	}
+	return writeJSON(w, map[string]any{"entry_id": entryId})
+}
+
 func cookieAcceptHandler(w http.ResponseWriter, req *http.Request) error {
 	return writeJSON(w, map[string]any{})
 }
@@ -803,7 +871,9 @@ func Serve() error {
 	mux.HandleFunc("/upload", wrap(wrapMustBeMethod("POST", wrapAuth(uploadHandler))))
 	mux.HandleFunc("/generated-list", wrap(wrapMustBeMethod("GET", wrapAuth(getGeneratedStoryListHandler))))
 	mux.HandleFunc("/delete-generated", wrap(wrapMustBeMethod("DELETE", wrapAuth(deleteGeneratedStoryHandler))))
-	mux.HandleFunc("/explain", wrap(wrapMustBeMethod("GET", getExplanationHandler)))
+	mux.HandleFunc("/save-word", wrap(wrapMustBeMethod("POST", wrapAuth(saveWordHandler))))
+	mux.HandleFunc("/remove-word", wrap(wrapMustBeMethod("DELETE", wrapAuth(removeWordHandler))))
+	mux.HandleFunc("/explain", wrap(wrapMustBeMethod("GET", wrapAuth(getExplanationHandler))))
 	mux.HandleFunc("/audio", wrap(wrapMustBeMethod("GET", getAudioHandler)))
 	mux.HandleFunc("/image", wrap(wrapMustBeMethod("GET", getImageHandler)))
 	mux.HandleFunc("/cookie-accept", wrap(wrapMustBeMethod("GET", cookieAcceptHandler)))

@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"lang/api/db"
+	"lang/api/dictionary"
 	"lang/api/gender"
 	"lang/api/llm"
 	"lang/api/story"
 	"lang/api/telemetry"
 	"log/slog"
 	"strings"
+	"sync"
 	"unicode"
 )
 
@@ -218,14 +220,14 @@ func Setup() {
 		panic(err)
 	}
 	wordStoreStmt, err = db.Db.Prepare(
-		"INSERT INTO word_explanation (story_id, l, r, l_sentence_idx, r_sentence_idx, word_idx, content) " +
-			"VALUES (?, ?, ?, ?, ?, ?, ?) " +
+		"INSERT INTO word_explanation (story_id, l, r, l_sentence_idx, r_sentence_idx, word_idx, content, dictionary_entry_id) " +
+			"VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
 			"ON DUPLICATE KEY UPDATE content = content;")
 	if err != nil {
 		panic(err)
 	}
 	wordLoadStmt, err = db.Db.Prepare(
-		"SELECT content FROM word_explanation " +
+		"SELECT content, dictionary_entry_id FROM word_explanation " +
 			"WHERE story_id = ? AND l = ? AND l_sentence_idx = ? AND r = ? AND r_sentence_idx = ? AND word_idx = ?")
 	if err != nil {
 		panic(err)
@@ -315,8 +317,14 @@ func GetSentence(ctx context.Context, eId SentenceExplanationId, maybeLSentence 
 
 // --- Word Explanation ---
 
+// WordExplanation is the result of clicking a word: the human-readable
+// explanation shown in the popup (Content) plus the id of the global dictionary
+// sense the word was resolved to (DictionaryEntryId). The id is invalid/NULL
+// when the word was not ingested into the dictionary (e.g. the ingest step
+// failed); the frontend only shows the Save button when it is set.
 type WordExplanation struct {
-	Content string `json:"content"`
+	Content           string
+	DictionaryEntryId sql.NullInt64
 }
 
 type WordExplanationId struct {
@@ -411,7 +419,7 @@ Translation: "%s"`, word, LANGUAGES_EN[r], rSentence, maybeLSentence)
 }
 
 func storeWord(ctx context.Context, wId WordExplanationId, e WordExplanation) error {
-	_, err := wordStoreStmt.ExecContext(ctx, wId.StoryId, wId.L, wId.R, wId.LSentenceIdx, wId.RSentenceIdx, wId.WordIdx, e.Content)
+	_, err := wordStoreStmt.ExecContext(ctx, wId.StoryId, wId.L, wId.R, wId.LSentenceIdx, wId.RSentenceIdx, wId.WordIdx, e.Content, e.DictionaryEntryId)
 	if err != nil {
 		return fmt.Errorf("failed to store word explanation in db: %w", err)
 	}
@@ -420,21 +428,67 @@ func storeWord(ctx context.Context, wId WordExplanationId, e WordExplanation) er
 
 func loadWord(wId WordExplanationId) (WordExplanation, error) {
 	var content string
-	err := wordLoadStmt.QueryRow(wId.StoryId, wId.L, wId.LSentenceIdx, wId.R, wId.RSentenceIdx, wId.WordIdx).Scan(&content)
+	var dictionaryEntryId sql.NullInt64
+	err := wordLoadStmt.QueryRow(wId.StoryId, wId.L, wId.LSentenceIdx, wId.R, wId.RSentenceIdx, wId.WordIdx).Scan(&content, &dictionaryEntryId)
 	if err != nil {
 		return WordExplanation{}, fmt.Errorf("failed to load word explanation from db: %w", err)
 	}
-	return WordExplanation{Content: content}, nil
+	return WordExplanation{Content: content, DictionaryEntryId: dictionaryEntryId}, nil
 }
 
-func generateWord(ctx context.Context, wId WordExplanationId, word, maybeLSentence, rSentence string) (WordExplanation, error) {
+func explainWord(ctx context.Context, l, r, word, maybeLSentence, rSentence string) (string, error) {
 	response, err := llm.Invoke(
 		ctx,
-		wordLlmRole(wId.L, wId.R), wordLlmQueryContent(wId.L, wId.R, word, rSentence, maybeLSentence), llm.Gpt)
+		wordLlmRole(l, r), wordLlmQueryContent(l, r, word, rSentence, maybeLSentence), llm.Gpt)
 	if err != nil {
-		return WordExplanation{}, err
+		return "", err
 	}
-	return WordExplanation{Content: strings.TrimSpace(response)}, nil
+	return strings.TrimSpace(response), nil
+}
+
+// generateWord runs the word task graph: the human-readable explanation
+// (explainWord) and the dictionary ingest (analyze + dedupe + save, in the
+// dictionary package) run in parallel, and we join on both before returning.
+//
+// The explanation is the user-facing product: if it fails, the whole thing
+// fails. The dictionary ingest is a side benefit; if it fails we log loudly and
+// return the explanation with a NULL dictionary entry id (the word simply won't
+// be Save-able), rather than denying the user their explanation.
+func generateWord(ctx context.Context, wId WordExplanationId, word, maybeLSentence, rSentence string) (WordExplanation, error) {
+	var (
+		wg         sync.WaitGroup
+		content    string
+		explainErr error
+		entryId    int64
+		ingestErr  error
+	)
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		content, explainErr = explainWord(ctx, wId.L, wId.R, word, maybeLSentence, rSentence)
+	}()
+	go func() {
+		defer wg.Done()
+		entryId, ingestErr = dictionary.Ingest(ctx, wId.R, word, rSentence)
+	}()
+	wg.Wait()
+
+	if explainErr != nil {
+		return WordExplanation{}, explainErr
+	}
+
+	result := WordExplanation{Content: content}
+	if ingestErr != nil {
+		// Don't fail the explanation over a dictionary bookkeeping error. A
+		// cancelled request is expected and not worth an error log.
+		if ctx.Err() == nil {
+			slog.Error(fmt.Sprintf("Failed to ingest word %q into dictionary: %v", word, ingestErr))
+		}
+	} else {
+		result.DictionaryEntryId = sql.NullInt64{Int64: entryId, Valid: true}
+	}
+	return result, nil
 }
 
 func GetWord(ctx context.Context, wId WordExplanationId, maybeLSentence string, rSentence string) (WordExplanation, error) {

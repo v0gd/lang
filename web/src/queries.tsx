@@ -337,6 +337,86 @@ export function useDeleteStoryMutation() {
   });
 }
 
+// markWordSavedInCache flips alreadySaved on every cached word-explanation that
+// resolved to this dictionary entry. The explain query carries the saved state,
+// so without this a save/remove would be forgotten as soon as the popup is
+// reopened from cache. Keying off the entry id (not the click position) also
+// keeps other sentences' explanations of the same word in sync.
+function markWordSavedInCache(
+  queryClient: ReturnType<typeof useQueryClient>,
+  dictionaryEntryId: number,
+  saved: boolean,
+) {
+  queryClient.setQueriesData<WordExplanation>(
+    { queryKey: ["explain-word"] },
+    (old) => {
+      if (!old || old.dictionaryEntryId !== dictionaryEntryId) return old;
+      return { ...old, alreadySaved: saved };
+    },
+  );
+}
+
+// useSaveWordMutation adds an already-ingested dictionary sense to the user's
+// saved-word list. The dictionary entry was created when the word's explanation
+// was generated; here we just send its id plus the spoken language l (used to
+// generate the localized description in the background). The backend returns
+// immediately.
+export function useSaveWordMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    void,
+    Error,
+    {
+      dictionaryEntryId: number;
+      l: string;
+    }
+  >({
+    mutationFn: async ({ dictionaryEntryId, l }) => {
+      const url = apiUrl("/save-word");
+      url.searchParams.append("dictionary_entry_id", dictionaryEntryId.toString());
+      url.searchParams.append("l", l);
+
+      const params = await fetchParamsWithAuth("POST");
+      const res = await fetch(url, params);
+      if (!res.ok) {
+        console.error("Unexpected result for", url, res);
+        throw new Error("Unexpected result for save-word mutation");
+      }
+    },
+    onSuccess: (_data, { dictionaryEntryId }) =>
+      markWordSavedInCache(queryClient, dictionaryEntryId, true),
+    retry: false,
+  });
+}
+
+// useRemoveWordMutation removes a dictionary sense from the user's saved-word
+// list. Only the user reference is dropped; the global dictionary entry stays.
+export function useRemoveWordMutation() {
+  const queryClient = useQueryClient();
+  return useMutation<
+    void,
+    Error,
+    {
+      dictionaryEntryId: number;
+    }
+  >({
+    mutationFn: async ({ dictionaryEntryId }) => {
+      const url = apiUrl("/remove-word");
+      url.searchParams.append("dictionary_entry_id", dictionaryEntryId.toString());
+
+      const params = await fetchParamsWithAuth("DELETE");
+      const res = await fetch(url, params);
+      if (!res.ok) {
+        console.error("Unexpected result for", url, res);
+        throw new Error("Unexpected result for remove-word mutation");
+      }
+    },
+    onSuccess: (_data, { dictionaryEntryId }) =>
+      markWordSavedInCache(queryClient, dictionaryEntryId, false),
+    retry: false,
+  });
+}
+
 export function useExplainQuery(
   storyId: string,
   l: string,
@@ -371,6 +451,17 @@ export function useExplainQuery(
   });
 }
 
+export interface WordExplanation {
+  content: string;
+  // The global dictionary sense this word was resolved to, or null if the word
+  // wasn't ingested. The Save button is only shown when this is set.
+  dictionaryEntryId: number | null;
+  // Whether the logged-in user already has this sense in their saved-word list.
+  // Always false for anonymous users; used to render the Save button as
+  // already-saved.
+  alreadySaved: boolean;
+}
+
 export function useWordExplainQuery(
   storyId: string,
   l: string,
@@ -387,7 +478,7 @@ export function useWordExplainQuery(
   url.searchParams.append("r_sentence_idx", rSentenceIdx.toString());
   url.searchParams.append("word_idx", wordIdx.toString());
 
-  return useQuery<string>({
+  return useQuery<WordExplanation>({
     queryKey: [
       "explain-word",
       storyId,
@@ -402,7 +493,11 @@ export function useWordExplainQuery(
         fetch(url, params).then((res) => {
           if (res.ok) {
             return res.json().then((obj) => {
-              return obj.content;
+              return {
+                content: obj.content,
+                dictionaryEntryId: obj.dictionary_entry_id ?? null,
+                alreadySaved: obj.already_saved ?? false,
+              };
             });
           } else {
             console.error("Unexpected result for", url);

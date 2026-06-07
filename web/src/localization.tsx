@@ -8,6 +8,13 @@ export interface LocalizationStrings {
   story_not_found_error: string;
   loading_explain: string;
   loading_explain_error: string;
+  save_word_button: string;
+  saving_word: string;
+  word_saved: string;
+  save_word_error: string;
+  remove_word_button: string;
+  removing_word: string;
+  remove_word_error: string;
   settings_title: string;
   settings_i_speak: string;
   settings_i_learn: string;
@@ -77,6 +84,13 @@ const strings = new Map<string, LocalizationStrings>([
       story_not_found_error: "Story not found :(",
       loading_explain: "Loading explanation...",
       loading_explain_error: "Error loading explanation",
+      save_word_button: "Save to my dictionary",
+      saving_word: "Saving...",
+      word_saved: "Saved",
+      save_word_error: "Couldn't save — try again",
+      remove_word_button: "Remove from my dictionary",
+      removing_word: "Removing...",
+      remove_word_error: "Couldn't remove — try again",
       settings_title: "Settings",
       settings_i_speak: "I speak:",
       settings_i_learn: "I learn:",
@@ -182,6 +196,13 @@ const strings = new Map<string, LocalizationStrings>([
       story_not_found_error: "Geschichte nicht gefunden :(",
       loading_explain: "Lade Erklärung...",
       loading_explain_error: "Fehler beim Laden der Erklärung",
+      save_word_button: "In mein Wörterbuch speichern",
+      saving_word: "Wird gespeichert...",
+      word_saved: "Gespeichert",
+      save_word_error: "Speichern fehlgeschlagen — bitte erneut versuchen",
+      remove_word_button: "Aus meinem Wörterbuch entfernen",
+      removing_word: "Wird entfernt...",
+      remove_word_error: "Entfernen fehlgeschlagen — bitte erneut versuchen",
       settings_title: "Einstellungen",
       settings_i_speak: "Ich spreche:",
       settings_i_learn: "Ich lerne:",
@@ -288,6 +309,13 @@ const strings = new Map<string, LocalizationStrings>([
       story_not_found_error: "История не найдена :(",
       loading_explain: "Загрузка объяснения...",
       loading_explain_error: "Ошибка загрузки объяснения",
+      save_word_button: "Сохранить в мой словарь",
+      saving_word: "Сохранение...",
+      word_saved: "Сохранено",
+      save_word_error: "Не удалось сохранить — попробуйте ещё раз",
+      remove_word_button: "Удалить из моего словаря",
+      removing_word: "Удаление...",
+      remove_word_error: "Не удалось удалить — попробуйте ещё раз",
       settings_title: "Настройки",
       settings_i_speak: "Я говорю на:",
       settings_i_learn: "Я учу:",
