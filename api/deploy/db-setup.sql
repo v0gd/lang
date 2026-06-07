@@ -101,7 +101,6 @@ CREATE TABLE dictionary_entry_localization (
     dictionary_entry_id BIGINT UNSIGNED NOT NULL,
     l VARCHAR(10) NOT NULL,                  -- spoken language (en, ru, de)
     brief_meaning TEXT NOT NULL,
-    detailed_meaning TEXT NOT NULL,
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (dictionary_entry_id, l),

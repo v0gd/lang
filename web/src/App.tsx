@@ -13,9 +13,11 @@ import { Settings, Theme, ShowTranslationMode } from "./settings";
 import { TopMenu } from "./TopMenu";
 import { GenerateStoryView } from "./GenerateView";
 import { UploadView } from "./UploadView";
+import { MyDictionaryView } from "./MyDictionaryView";
 import { useLoggedIn } from "./firebase";
 import { SignInPage, SignUpPage } from "./LoginPage";
 import { useStoryQuery } from "./queries";
+import { lstr } from "./localization";
 
 function applyTheme(theme: Theme) {
   document.documentElement.classList.toggle("dark", theme === Theme.Dark);
@@ -218,6 +220,51 @@ function UploadComponent() {
   );
 }
 
+function MyDictionaryComponent() {
+  const navigate = useNavigate();
+  const [showSettings, setShowSettings] = useState<boolean>(false);
+  const [settings, setSettings] = useState<Settings>(loadSettingsOrDefault());
+  const loggedIn = useLoggedIn();
+
+  return (
+    <div className="flex flex-col h-screen font-literata">
+      {showSettings && (
+        <SettingsModal
+          settings={settings}
+          setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
+          closeModal={() => setShowSettings(false)}
+        />
+      )}
+      <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
+        <TopMenu
+          showTranslationControls={false}
+          settings={settings}
+          setSettings={(value: Settings) => setSettingsSafe(value, setSettings)}
+          setShowSettingsMenu={() => setShowSettings(true)}
+        />
+        <div className="w-[100%] max-w-[650px] pt-4 px-4">
+          {loggedIn ? (
+            <MyDictionaryView l={settings.lLocale} r={settings.rLocale} />
+          ) : (
+            <div className="mt-8 flex flex-col items-center gap-4">
+              <p className="text-secondary-text text-center">
+                {lstr(settings.lLocale).my_dictionary_empty}
+              </p>
+              <button
+                type="button"
+                className="text-white bg-primary border border-primary px-4 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-primary-hover"
+                onClick={() => navigate("/login")}
+              >
+                {lstr(settings.lLocale).login_button}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function LoginComponent() {
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [settings, setSettings] = useState<Settings>(loadSettingsOrDefault());
@@ -283,6 +330,7 @@ function App() {
         <Route path="/signup" Component={SignUpComponent}></Route>
         <Route path="/generate" Component={StoryGenerateComponent}></Route>
         <Route path="/upload" Component={UploadComponent}></Route>
+        <Route path="/dictionary" Component={MyDictionaryComponent}></Route>
         <Route path="/generated/:storyId" Component={StoryComponent}></Route>
         <Route path="/:storyId" Component={StoryComponent}></Route>
       </Routes>

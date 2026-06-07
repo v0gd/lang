@@ -156,6 +156,16 @@ function UserAvatar({ user, locale }: { user: User; locale: string }) {
           <div className="py-1">
             <button
               type="button"
+              onClick={() => {
+                setOpen(false);
+                navigate("/dictionary");
+              }}
+              className="w-full text-left px-4 py-2 text-sm text-secondary-text hover:text-main-text hover:bg-cream-dark transition-colors"
+            >
+              {lstr(locale).my_dictionary_nav}
+            </button>
+            <button
+              type="button"
               onClick={logout}
               className="w-full text-left px-4 py-2 text-sm text-secondary-text hover:text-main-text hover:bg-cream-dark transition-colors"
             >

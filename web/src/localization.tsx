@@ -15,6 +15,16 @@ export interface LocalizationStrings {
   remove_word_button: string;
   removing_word: string;
   remove_word_error: string;
+  my_dictionary_nav: string;
+  my_dictionary_header: string;
+  my_dictionary_loading: string;
+  my_dictionary_error: string;
+  my_dictionary_empty: string;
+  my_dictionary_meaning_pending: string;
+  my_dictionary_examples_heading: string;
+  my_dictionary_prev_page: string;
+  my_dictionary_next_page: string;
+  my_dictionary_page_label: string;
   settings_title: string;
   settings_i_speak: string;
   settings_i_learn: string;
@@ -91,6 +101,17 @@ const strings = new Map<string, LocalizationStrings>([
       remove_word_button: "Remove from my dictionary",
       removing_word: "Removing...",
       remove_word_error: "Couldn't remove — try again",
+      my_dictionary_nav: "My dictionary",
+      my_dictionary_header: "My dictionary",
+      my_dictionary_loading: "Loading your dictionary...",
+      my_dictionary_error: "Couldn't load your dictionary — try again",
+      my_dictionary_empty:
+        "No saved words yet. Tap a word while reading and save it to your dictionary.",
+      my_dictionary_meaning_pending: "Translation pending...",
+      my_dictionary_examples_heading: "Examples",
+      my_dictionary_prev_page: "Previous",
+      my_dictionary_next_page: "Next",
+      my_dictionary_page_label: "Page",
       settings_title: "Settings",
       settings_i_speak: "I speak:",
       settings_i_learn: "I learn:",
@@ -203,6 +224,18 @@ const strings = new Map<string, LocalizationStrings>([
       remove_word_button: "Aus meinem Wörterbuch entfernen",
       removing_word: "Wird entfernt...",
       remove_word_error: "Entfernen fehlgeschlagen — bitte erneut versuchen",
+      my_dictionary_nav: "Mein Wörterbuch",
+      my_dictionary_header: "Mein Wörterbuch",
+      my_dictionary_loading: "Wörterbuch wird geladen...",
+      my_dictionary_error:
+        "Wörterbuch konnte nicht geladen werden — bitte erneut versuchen",
+      my_dictionary_empty:
+        "Noch keine gespeicherten Wörter. Tippe beim Lesen auf ein Wort und speichere es in deinem Wörterbuch.",
+      my_dictionary_meaning_pending: "Übersetzung folgt...",
+      my_dictionary_examples_heading: "Beispiele",
+      my_dictionary_prev_page: "Zurück",
+      my_dictionary_next_page: "Weiter",
+      my_dictionary_page_label: "Seite",
       settings_title: "Einstellungen",
       settings_i_speak: "Ich spreche:",
       settings_i_learn: "Ich lerne:",
@@ -316,6 +349,17 @@ const strings = new Map<string, LocalizationStrings>([
       remove_word_button: "Удалить из моего словаря",
       removing_word: "Удаление...",
       remove_word_error: "Не удалось удалить — попробуйте ещё раз",
+      my_dictionary_nav: "Мой словарь",
+      my_dictionary_header: "Мой словарь",
+      my_dictionary_loading: "Загрузка словаря...",
+      my_dictionary_error: "Не удалось загрузить словарь — попробуйте ещё раз",
+      my_dictionary_empty:
+        "Пока нет сохранённых слов. Нажмите на слово во время чтения и сохраните его в словарь.",
+      my_dictionary_meaning_pending: "Перевод готовится...",
+      my_dictionary_examples_heading: "Примеры",
+      my_dictionary_prev_page: "Назад",
+      my_dictionary_next_page: "Вперёд",
+      my_dictionary_page_label: "Страница",
       settings_title: "Настройки",
       settings_i_speak: "Я говорю на:",
       settings_i_learn: "Я учу:",

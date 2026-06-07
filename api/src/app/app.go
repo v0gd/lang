@@ -836,6 +836,34 @@ func removeWordHandler(w http.ResponseWriter, req *http.Request, u user.User) er
 	return writeJSON(w, map[string]any{"entry_id": entryId})
 }
 
+// getMyDictionaryHandler returns one page of the user's saved words in the
+// learned language r, with meanings localized to the spoken language l. The
+// page index is 0-based; has_more lets the client offer a "next page" control
+// without a total count.
+func getMyDictionaryHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
+	l, r, err := mustExtractLocalePair(req)
+	if err != nil {
+		return err
+	}
+	page := 0
+	if pageStr := req.URL.Query().Get("page"); pageStr != "" {
+		page, err = strconv.Atoi(pageStr)
+		if err != nil || page < 0 {
+			return newHTTPError(http.StatusBadRequest, "Invalid 'page' parameter: '%s'", pageStr)
+		}
+	}
+
+	words, hasMore, err := dictionary.ListForUser(req.Context(), u.Id, l, r, page)
+	if err != nil {
+		return fmt.Errorf("dictionary.ListForUser error: %w", err)
+	}
+	return writeJSON(w, map[string]any{
+		"words":    words,
+		"page":     page,
+		"has_more": hasMore,
+	})
+}
+
 func cookieAcceptHandler(w http.ResponseWriter, req *http.Request) error {
 	return writeJSON(w, map[string]any{})
 }
@@ -873,6 +901,7 @@ func Serve() error {
 	mux.HandleFunc("/delete-generated", wrap(wrapMustBeMethod("DELETE", wrapAuth(deleteGeneratedStoryHandler))))
 	mux.HandleFunc("/save-word", wrap(wrapMustBeMethod("POST", wrapAuth(saveWordHandler))))
 	mux.HandleFunc("/remove-word", wrap(wrapMustBeMethod("DELETE", wrapAuth(removeWordHandler))))
+	mux.HandleFunc("/my-dictionary", wrap(wrapMustBeMethod("GET", wrapAuth(getMyDictionaryHandler))))
 	mux.HandleFunc("/explain", wrap(wrapMustBeMethod("GET", wrapAuth(getExplanationHandler))))
 	mux.HandleFunc("/audio", wrap(wrapMustBeMethod("GET", getAudioHandler)))
 	mux.HandleFunc("/image", wrap(wrapMustBeMethod("GET", getImageHandler)))

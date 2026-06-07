@@ -88,8 +88,7 @@ type existingSense struct {
 // localizationOutput is the structured LLM output for a per-spoken-language
 // description of a dictionary entry.
 type localizationOutput struct {
-	BriefMeaning    string `json:"brief_meaning" jsonschema_description:"A short translation/meaning written in the user's spoken language (a few words, like a dictionary gloss)."`
-	DetailedMeaning string `json:"detailed_meaning" jsonschema_description:"A one or two sentence explanation written in the user's spoken language."`
+	BriefMeaning string `json:"brief_meaning" jsonschema_description:"A short translation/meaning written in the user's spoken language (a few words, like a dictionary gloss)."`
 }
 
 var (
@@ -101,7 +100,12 @@ var (
 	insertUserWordStmt     *sql.Stmt
 	userWordExistsStmt     *sql.Stmt
 	deleteUserWordStmt     *sql.Stmt
+	listUserWordsStmt      *sql.Stmt
 )
+
+// MyDictionaryPageSize is the number of saved words returned per page by
+// ListForUser.
+const MyDictionaryPageSize = 100
 
 func Setup() {
 	var err error
@@ -131,8 +135,8 @@ func Setup() {
 	// First writer wins for a given (entry, l): the no-op UPDATE makes the
 	// statement idempotent without overwriting another job's description.
 	upsertLocalizationStmt, err = db.Db.Prepare(
-		"INSERT INTO dictionary_entry_localization (dictionary_entry_id, l, brief_meaning, detailed_meaning) " +
-			"VALUES (?, ?, ?, ?) " +
+		"INSERT INTO dictionary_entry_localization (dictionary_entry_id, l, brief_meaning) " +
+			"VALUES (?, ?, ?) " +
 			"ON DUPLICATE KEY UPDATE dictionary_entry_id = dictionary_entry_id;")
 	if err != nil {
 		panic(err)
@@ -151,6 +155,23 @@ func Setup() {
 	}
 	deleteUserWordStmt, err = db.Db.Prepare(
 		"DELETE FROM user_dictionary_word WHERE user_id = ? AND dictionary_entry_id = ?;")
+	if err != nil {
+		panic(err)
+	}
+	// Saved words for one user in one learned language (r), with the meaning in
+	// the user's spoken language (l) when it has already been localized (LEFT
+	// JOIN: the localization is produced in the background and may not exist
+	// yet). Most-recently-saved first; e.id as a stable tiebreaker for paging.
+	listUserWordsStmt, err = db.Db.Prepare(
+		"SELECT e.id, e.display_form, e.part_of_speech, e.gender, e.examples, " +
+			"COALESCE(loc.brief_meaning, '') " +
+			"FROM user_dictionary_word uw " +
+			"JOIN dictionary_entry e ON e.id = uw.dictionary_entry_id " +
+			"LEFT JOIN dictionary_entry_localization loc " +
+			"ON loc.dictionary_entry_id = e.id AND loc.l = ? " +
+			"WHERE uw.user_id = ? AND e.r = ? " +
+			"ORDER BY uw.created DESC, e.id DESC " +
+			"LIMIT ? OFFSET ?;")
 	if err != nil {
 		panic(err)
 	}
@@ -348,6 +369,57 @@ func RemoveForUser(ctx context.Context, userId, entryId int64) error {
 	return nil
 }
 
+// SavedWord is one entry of a user's "My Dictionary" page: the global
+// dictionary entry plus its meaning in the user's spoken language. BriefMeaning
+// is empty when the background localization has not been produced yet.
+type SavedWord struct {
+	EntryId      int64    `json:"dictionary_entry_id"`
+	DisplayForm  string   `json:"display_form"`
+	PartOfSpeech string   `json:"part_of_speech"`
+	Gender       string   `json:"gender"`
+	Examples     []string `json:"examples"`
+	BriefMeaning string   `json:"brief_meaning"`
+}
+
+// ListForUser returns one page (MyDictionaryPageSize entries) of userId's saved
+// words in learned language r, with meanings localized to spoken language l.
+// page is 0-based. The returned bool reports whether a further page exists (we
+// over-fetch by one row to avoid a separate COUNT query).
+func ListForUser(ctx context.Context, userId int64, l, r string, page int) ([]SavedWord, bool, error) {
+	if page < 0 {
+		page = 0
+	}
+	offset := page * MyDictionaryPageSize
+
+	rows, err := listUserWordsStmt.QueryContext(ctx, l, userId, r, MyDictionaryPageSize+1, offset)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to list saved words for user %d: %w", userId, err)
+	}
+	defer rows.Close()
+
+	words := make([]SavedWord, 0, MyDictionaryPageSize+1)
+	for rows.Next() {
+		var word SavedWord
+		var examplesJson []byte
+		if err := rows.Scan(&word.EntryId, &word.DisplayForm, &word.PartOfSpeech, &word.Gender, &examplesJson, &word.BriefMeaning); err != nil {
+			return nil, false, fmt.Errorf("failed to scan saved word row: %w", err)
+		}
+		if err := json.Unmarshal(examplesJson, &word.Examples); err != nil {
+			return nil, false, fmt.Errorf("failed to unmarshal examples for entry %d: %w", word.EntryId, err)
+		}
+		words = append(words, word)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, fmt.Errorf("error iterating saved word rows: %w", err)
+	}
+
+	hasMore := len(words) > MyDictionaryPageSize
+	if hasMore {
+		words = words[:MyDictionaryPageSize]
+	}
+	return words, hasMore, nil
+}
+
 // IsSavedForUser reports whether entryId is already in userId's saved-word
 // list. Used to render the Save button as already-saved when a word's
 // explanation is reopened.
@@ -421,7 +493,7 @@ func localizeEntry(ctx context.Context, entryId int64, l string) error {
 		return err
 	}
 
-	if _, err := upsertLocalizationStmt.ExecContext(ctx, entryId, l, loc.BriefMeaning, loc.DetailedMeaning); err != nil {
+	if _, err := upsertLocalizationStmt.ExecContext(ctx, entryId, l, loc.BriefMeaning); err != nil {
 		return fmt.Errorf("failed to upsert dictionary localization: %w", err)
 	}
 	return nil
@@ -443,8 +515,7 @@ func generateLocalization(ctx context.Context, l, r, displayForm, partOfSpeech, 
 		return localizationOutput{}, fmt.Errorf("failed to unmarshal localization: %w", err)
 	}
 	loc.BriefMeaning = strings.TrimSpace(loc.BriefMeaning)
-	loc.DetailedMeaning = strings.TrimSpace(loc.DetailedMeaning)
-	if loc.BriefMeaning == "" || loc.DetailedMeaning == "" {
+	if loc.BriefMeaning == "" {
 		return localizationOutput{}, fmt.Errorf("LLM returned empty localization")
 	}
 	return loc, nil
@@ -480,7 +551,7 @@ func matchRole(r string) string {
 }
 
 func localizeRole(l, r string) string {
-	return fmt.Sprintf(`You are a %s teacher for %s speakers. You are given one sense of a %s dictionary word (its display form, part of speech, and a short English gloss that pins down WHICH sense it is). Describe that exact sense in %s. Write brief_meaning and detailed_meaning in %s only; do not include the original %s word.`,
+	return fmt.Sprintf(`You are a %s teacher for %s speakers. You are given one sense of a %s dictionary word (its display form, part of speech, and a short English gloss that pins down WHICH sense it is). Describe that exact sense in %s. Write brief_meaning in %s only; do not include the original %s word.`,
 		languageNames[r], languageNames[l], languageNames[r],
 		languageNames[l], languageNames[l], languageNames[r])
 }

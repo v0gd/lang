@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { API_URL, RELOAD_STORY } from "./config";
 import { StoryDescriptor, StoryMultilingual } from "./story";
 import { getAuthToken, isLoggedIn } from "./firebase";
@@ -506,6 +511,66 @@ export function useWordExplainQuery(
           }
         }),
       ),
+    retry: 2,
+  });
+}
+
+// SavedWord is one row of the user's "My Dictionary" page. briefMeaning is an
+// empty string until the background localization job has produced the
+// description in the user's spoken language.
+export interface SavedWord {
+  dictionaryEntryId: number;
+  displayForm: string;
+  partOfSpeech: string;
+  gender: string;
+  examples: string[];
+  briefMeaning: string;
+}
+
+export interface MyDictionaryPage {
+  words: SavedWord[];
+  page: number;
+  hasMore: boolean;
+}
+
+export const MY_DICTIONARY_PAGE_SIZE = 100;
+
+// useMyDictionaryQuery fetches one page (MY_DICTIONARY_PAGE_SIZE words) of the
+// user's saved words in learned language r, localized to spoken language l.
+// page is 0-based. Previous page data is kept while the next page loads to
+// avoid a flash of empty content during pagination.
+export function useMyDictionaryQuery(l: string, r: string, page: number) {
+  const url = apiUrl("/my-dictionary");
+  url.searchParams.append("l", l);
+  url.searchParams.append("r", r);
+  url.searchParams.append("page", page.toString());
+
+  return useQuery<MyDictionaryPage>({
+    queryKey: ["my-dictionary", l, r, page],
+    queryFn: async () =>
+      fetchParamsWithAuth("GET").then((params) =>
+        fetch(url, params).then((res) => {
+          if (res.ok) {
+            return res.json().then((obj) => ({
+              words: (obj.words ?? []).map((w: Record<string, unknown>) => ({
+                dictionaryEntryId: w.dictionary_entry_id as number,
+                displayForm: w.display_form as string,
+                partOfSpeech: w.part_of_speech as string,
+                gender: w.gender as string,
+                examples: (w.examples as string[]) ?? [],
+                briefMeaning: (w.brief_meaning as string) ?? "",
+              })),
+              page: obj.page ?? page,
+              hasMore: obj.has_more ?? false,
+            }));
+          } else {
+            console.error("Unexpected result for", url);
+            console.error(res);
+            throw new Error("Unexpected result for my-dictionary query");
+          }
+        }),
+      ),
+    placeholderData: keepPreviousData,
     retry: 2,
   });
 }
