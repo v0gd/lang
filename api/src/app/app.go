@@ -24,6 +24,7 @@ import (
 	"lang/api/stringutil"
 	"lang/api/tts"
 	"lang/api/upload"
+	"lang/api/user"
 )
 
 var (
@@ -39,7 +40,7 @@ var (
 
 // handlerFunc is a custom type that returns an error we can handle uniformly.
 type handlerFunc func(http.ResponseWriter, *http.Request) error
-type handlerFuncWithAuth func(http.ResponseWriter, *http.Request, string) error
+type handlerFuncWithAuth func(http.ResponseWriter, *http.Request, user.User) error
 
 func wrapError(h handlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
@@ -85,7 +86,15 @@ func wrapAuth(next handlerFuncWithAuth) handlerFunc {
 			return newHTTPError(http.StatusUnauthorized, "Invalid Authorization header")
 		}
 
-		return next(w, r, token.UID)
+		// Resolve (and lazily create) the internal user once, here at the
+		// boundary, so every authenticated handler receives a fully-resolved
+		// User and account-wide checks live in a single place.
+		resolvedUser, err := user.Resolve(r.Context(), token.UID)
+		if err != nil {
+			return fmt.Errorf("failed to resolve user: %w", err)
+		}
+
+		return next(w, r, resolvedUser)
 	}
 }
 
@@ -551,8 +560,8 @@ func filterTopicsOrMoods(s []string) []string {
 	return res
 }
 
-func generateStoryHandler(w http.ResponseWriter, req *http.Request, uid string) error {
-	slog.Info(fmt.Sprintf("Generating story for user %s", uid))
+func generateStoryHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
+	slog.Info(fmt.Sprintf("Generating story for user %s", u.FirebaseUid))
 
 	l, r, err := mustExtractLocalePair(req)
 	if err != nil {
@@ -581,7 +590,7 @@ func generateStoryHandler(w http.ResponseWriter, req *http.Request, uid string) 
 		Moods:  moodsFiltered,
 	}
 	// TODO: re-try a few times
-	s, err := generator.Generate(req.Context(), params, uid)
+	s, err := generator.Generate(req.Context(), params, u.FirebaseUid)
 	if err != nil {
 		return fmt.Errorf("story.Generate error: %w", err)
 	}
@@ -592,16 +601,16 @@ func generateStoryHandler(w http.ResponseWriter, req *http.Request, uid string) 
 	return writeJSON(w, dict)
 }
 
-func getGeneratedStoryListHandler(w http.ResponseWriter, req *http.Request, uid string) error {
+func getGeneratedStoryListHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
 	l, r, err := mustExtractLocalePair(req)
 	if err != nil {
 		return err
 	}
-	stories, err := generator.List(uid, l, r)
+	stories, err := generator.List(u.FirebaseUid, l, r)
 	if err != nil {
 		return fmt.Errorf("list error: %w", err)
 	}
-	slog.Info(fmt.Sprintf("Listed %d generated stories for user %s", len(stories), uid))
+	slog.Info(fmt.Sprintf("Listed %d generated stories for user %s", len(stories), u.FirebaseUid))
 	return writeJSON(w, stories)
 }
 
@@ -614,7 +623,7 @@ const scanMaxImages = 5
 // keep memory usage and provider request size bounded.
 const scanMaxTotalBytes = 10 * 1024 * 1024
 
-func scanHandler(w http.ResponseWriter, req *http.Request, uid string) error {
+func scanHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
 	r, err := mustExtractLocaleParam(req, "r")
 	if err != nil {
 		return err
@@ -668,9 +677,9 @@ func scanHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 		images = append(images, scan.Image{Bytes: bytes, MimeType: mimeType})
 	}
 
-	slog.Info(fmt.Sprintf("Scanning %d image(s) (%d bytes) for user %s -> %s", len(images), totalBytes, uid, r))
+	slog.Info(fmt.Sprintf("Scanning %d image(s) (%d bytes) for user %s -> %s", len(images), totalBytes, u.FirebaseUid, r))
 
-	s, err := scan.Scan(req.Context(), images, r, uid)
+	s, err := scan.Scan(req.Context(), images, r, u.FirebaseUid)
 	if err != nil {
 		if errors.Is(err, scan.ErrNoTargetLanguage) {
 			w.Header().Set("Content-Type", "application/json")
@@ -698,7 +707,7 @@ func scanHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 // upload.MaxInputChars (4 bytes/rune) plus a small JSON envelope. The
 // rune-accurate limit is enforced inside upload.Upload so the user sees the
 // same "characters" count the UI does.
-func uploadHandler(w http.ResponseWriter, req *http.Request, uid string) error {
+func uploadHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
 	r, err := mustExtractLocaleParam(req, "r")
 	if err != nil {
 		return err
@@ -718,9 +727,9 @@ func uploadHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 		return newHTTPError(http.StatusBadRequest, "Invalid JSON body: %v", err)
 	}
 
-	slog.Info(fmt.Sprintf("Uploading %d chars for user %s -> %s", len(body.Text), uid, r))
+	slog.Info(fmt.Sprintf("Uploading %d chars for user %s -> %s", len(body.Text), u.FirebaseUid, r))
 
-	s, err := upload.Upload(req.Context(), body.Text, r, uid)
+	s, err := upload.Upload(req.Context(), body.Text, r, u.FirebaseUid)
 	if err != nil {
 		switch {
 		case errors.Is(err, upload.ErrInputEmpty):
@@ -741,21 +750,21 @@ func uploadHandler(w http.ResponseWriter, req *http.Request, uid string) error {
 	return writeJSON(w, dict)
 }
 
-func deleteGeneratedStoryHandler(w http.ResponseWriter, req *http.Request, uid string) error {
+func deleteGeneratedStoryHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
 	storyId, err := mustExtractParam(req, "story_id")
 	if err != nil {
 		return err
 	}
-	slog.Info(fmt.Sprintf("Deleting story %s for user %s", storyId, uid))
-	cnt, err := generator.Delete(storyId, uid)
+	slog.Info(fmt.Sprintf("Deleting story %s for user %s", storyId, u.FirebaseUid))
+	cnt, err := generator.Delete(storyId, u.FirebaseUid)
 	if err != nil {
-		return fmt.Errorf("failed to delete story %s for user %s: %w", storyId, uid, err)
+		return fmt.Errorf("failed to delete story %s for user %s: %w", storyId, u.FirebaseUid, err)
 	}
 	if cnt == 0 {
-		slog.Warn(fmt.Sprintf("Story %s not found for user %s", storyId, uid))
+		slog.Warn(fmt.Sprintf("Story %s not found for user %s", storyId, u.FirebaseUid))
 		return newHTTPError(http.StatusNotFound, "Story not found")
 	}
-	slog.Info(fmt.Sprintf("Deleted story %s for user %s", storyId, uid))
+	slog.Info(fmt.Sprintf("Deleted story %s for user %s", storyId, u.FirebaseUid))
 	return nil
 }
 

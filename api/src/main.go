@@ -8,6 +8,7 @@ import (
 	"lang/api/firebase"
 	"lang/api/generator"
 	"lang/api/tts"
+	"lang/api/user"
 	"log"
 )
 
@@ -15,6 +16,7 @@ func main() {
 	firebase.Setup()
 	cache.Setup()
 	db.Setup()
+	user.Setup()
 	generator.Setup()
 	explanation.Setup()
 	tts.Setup()

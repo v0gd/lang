@@ -51,4 +51,67 @@ CREATE TABLE word_explanation (
     PRIMARY KEY (story_id, l, r, l_sentence_idx, r_sentence_idx, word_idx)
 );
 
+CREATE TABLE user (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    firebase_uid VARCHAR(256) NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY user_firebase_uid_unique (firebase_uid)
+);
+
+-- Global, user-agnostic dictionary. Each row is one sense of a word in the
+-- learned language (r). The same spelling can have multiple rows (e.g.
+-- "die Bank" as bench vs financial institution, or a noun/verb pair), so
+-- there is no uniqueness constraint on the word text; sense deduplication is
+-- handled in code via the LLM using the existing senses + meaning_fingerprint.
+CREATE TABLE dictionary_entry (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    r VARCHAR(10) NOT NULL,                 -- learned language (de, ru, ...)
+
+    canonical_form VARCHAR(256) NOT NULL,   -- "bank"  (normalized, for matching/grouping)
+    display_form   VARCHAR(256) NOT NULL,   -- "die Bank" (shown to the user)
+
+    part_of_speech ENUM('noun','verb','adjective','adverb','pronoun',
+                        'preposition','conjunction','interjection','phrase','other') NOT NULL,
+
+    -- Short English meaning, used only for sense identity/deduplication (code-side),
+    -- never displayed to the user.
+    meaning_fingerprint VARCHAR(512) NOT NULL,
+
+    gender ENUM('masculine','feminine','neuter','none') NOT NULL DEFAULT 'none',  -- 'none' for non-nouns
+    plural_form VARCHAR(256) NULL,           -- nouns only; NULL when not applicable
+
+    examples JSON NOT NULL,                  -- array of example sentences in the learned language
+
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    INDEX dictionary_entry_lookup_idx (r, canonical_form, part_of_speech)
+);
+
+-- Per-spoken-language (l) descriptions for a dictionary entry. Keeps the global
+-- entry language-agnostic while supporting explanations in en/ru/de.
+CREATE TABLE dictionary_entry_localization (
+    dictionary_entry_id BIGINT UNSIGNED NOT NULL,
+    l VARCHAR(10) NOT NULL,                  -- spoken language (en, ru, de)
+    brief_meaning TEXT NOT NULL,
+    detailed_meaning TEXT NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (dictionary_entry_id, l),
+    FOREIGN KEY (dictionary_entry_id) REFERENCES dictionary_entry(id)
+);
+
+-- A user's personal saved words: simple references into the global dictionary.
+CREATE TABLE user_dictionary_word (
+    user_id BIGINT UNSIGNED NOT NULL,
+    dictionary_entry_id BIGINT UNSIGNED NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, dictionary_entry_id),
+    INDEX user_dictionary_word_user_idx (user_id),
+    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (dictionary_entry_id) REFERENCES dictionary_entry(id)
+);
+
 COMMIT;
