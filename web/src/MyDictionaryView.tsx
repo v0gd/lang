@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { SavedWord, useMyDictionaryQuery } from "./queries";
+import {
+  SavedWord,
+  useMyDictionaryQuery,
+  useRemoveWordMutation,
+} from "./queries";
 import { lstr } from "./localization";
 
 function PartOfSpeechBadge({ partOfSpeech }: { partOfSpeech: string }) {
@@ -7,6 +11,59 @@ function PartOfSpeechBadge({ partOfSpeech }: { partOfSpeech: string }) {
     <span className="text-xs font-medium text-secondary-text bg-cream-dark rounded-full px-2 py-0.5">
       {partOfSpeech}
     </span>
+  );
+}
+
+// DeleteWordControl is a two-step delete: the first click reveals a
+// confirm/cancel pair so a stray tap can't remove a word. Removal invalidates
+// the My Dictionary cache, so the card disappears on success.
+function DeleteWordControl({ word, l }: { word: SavedWord; l: string }) {
+  const [confirming, setConfirming] = useState(false);
+  const removeMutation = useRemoveWordMutation();
+
+  if (removeMutation.isError) {
+    return (
+      <span className="text-sm text-red-600">
+        {lstr(l).my_dictionary_delete_error}
+      </span>
+    );
+  }
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          disabled={removeMutation.isPending}
+          onClick={() =>
+            removeMutation.mutate({ dictionaryEntryId: word.dictionaryEntryId })
+          }
+          className="text-sm font-medium text-red-600 hover:text-red-700 transition-colors disabled:opacity-50"
+        >
+          {removeMutation.isPending
+            ? lstr(l).my_dictionary_deleting
+            : lstr(l).my_dictionary_delete_confirm}
+        </button>
+        <button
+          type="button"
+          disabled={removeMutation.isPending}
+          onClick={() => setConfirming(false)}
+          className="text-sm font-medium text-secondary-text hover:text-main-text transition-colors disabled:opacity-50"
+        >
+          {lstr(l).my_dictionary_delete_cancel}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => setConfirming(true)}
+      className="text-sm font-medium text-secondary-text hover:text-red-600 transition-colors"
+    >
+      {lstr(l).my_dictionary_delete}
+    </button>
   );
 }
 
@@ -28,6 +85,9 @@ function WordCard({ word, l }: { word: SavedWord; l: string }) {
             — {lstr(l).my_dictionary_meaning_pending}
           </span>
         )}
+        <span className="ml-auto">
+          <DeleteWordControl word={word} l={l} />
+        </span>
       </div>
 
       {word.examples.length > 0 && (

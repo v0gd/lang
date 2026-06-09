@@ -426,8 +426,12 @@ export function useRemoveWordMutation() {
         throw new Error("Unexpected result for remove-word mutation");
       }
     },
-    onSuccess: (_data, { dictionaryEntryId }) =>
-      markWordSavedInCache(queryClient, dictionaryEntryId, false),
+    onSuccess: (_data, { dictionaryEntryId }) => {
+      markWordSavedInCache(queryClient, dictionaryEntryId, false);
+      // Drop the word from any cached My Dictionary page so the list reflects
+      // the removal (e.g. when deleting from the dictionary page itself).
+      queryClient.invalidateQueries({ queryKey: ["my-dictionary"] });
+    },
     retry: false,
   });
 }

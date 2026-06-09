@@ -26,6 +26,11 @@ export interface LocalizationStrings {
   my_dictionary_prev_page: string;
   my_dictionary_next_page: string;
   my_dictionary_page_label: string;
+  my_dictionary_delete: string;
+  my_dictionary_delete_confirm: string;
+  my_dictionary_delete_cancel: string;
+  my_dictionary_deleting: string;
+  my_dictionary_delete_error: string;
   settings_title: string;
   settings_i_speak: string;
   settings_i_learn: string;
@@ -115,6 +120,11 @@ const strings = new Map<string, LocalizationStrings>([
       my_dictionary_prev_page: "Previous",
       my_dictionary_next_page: "Next",
       my_dictionary_page_label: "Page",
+      my_dictionary_delete: "Delete",
+      my_dictionary_delete_confirm: "Delete?",
+      my_dictionary_delete_cancel: "Cancel",
+      my_dictionary_deleting: "Deleting...",
+      my_dictionary_delete_error: "Couldn't delete — try again",
       settings_title: "Settings",
       settings_i_speak: "I speak:",
       settings_i_learn: "I learn:",
@@ -241,6 +251,11 @@ const strings = new Map<string, LocalizationStrings>([
       my_dictionary_prev_page: "Zurück",
       my_dictionary_next_page: "Weiter",
       my_dictionary_page_label: "Seite",
+      my_dictionary_delete: "Löschen",
+      my_dictionary_delete_confirm: "Löschen?",
+      my_dictionary_delete_cancel: "Abbrechen",
+      my_dictionary_deleting: "Wird gelöscht...",
+      my_dictionary_delete_error: "Löschen fehlgeschlagen — bitte erneut versuchen",
       settings_title: "Einstellungen",
       settings_i_speak: "Ich spreche:",
       settings_i_learn: "Ich lerne:",
@@ -367,6 +382,11 @@ const strings = new Map<string, LocalizationStrings>([
       my_dictionary_prev_page: "Назад",
       my_dictionary_next_page: "Вперёд",
       my_dictionary_page_label: "Страница",
+      my_dictionary_delete: "Удалить",
+      my_dictionary_delete_confirm: "Удалить?",
+      my_dictionary_delete_cancel: "Отмена",
+      my_dictionary_deleting: "Удаление...",
+      my_dictionary_delete_error: "Не удалось удалить — попробуйте ещё раз",
       settings_title: "Настройки",
       settings_i_speak: "Я говорю на:",
       settings_i_learn: "Я учу:",
