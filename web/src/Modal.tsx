@@ -17,9 +17,11 @@ export function Modal({
 }) {
   const ref = useRef<HTMLDialogElement>(null);
 
+  // Run once on mount: calling showModal() on an already-open dialog throws
+  // an InvalidStateError, so this must not re-run on re-renders.
   useEffect(() => {
     ref.current?.showModal();
-  });
+  }, []);
 
   return (
     <dialog

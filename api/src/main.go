@@ -1,6 +1,9 @@
 package main
 
 import (
+	"log/slog"
+	"os"
+
 	"lang/api/app"
 	"lang/api/cache"
 	"lang/api/db"
@@ -10,7 +13,6 @@ import (
 	"lang/api/generator"
 	"lang/api/tts"
 	"lang/api/user"
-	"log"
 )
 
 func main() {
@@ -22,9 +24,8 @@ func main() {
 	explanation.Setup()
 	dictionary.Setup()
 	tts.Setup()
-	log.Fatal(app.Serve())
-	// llm.Test()
-	// story.Test()
-	// generator.Test()
-	// explanation.Test()
+	if err := app.Serve(); err != nil {
+		slog.Error(err.Error())
+		os.Exit(1)
+	}
 }

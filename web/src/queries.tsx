@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-query";
 import { API_URL, RELOAD_STORY } from "./config";
 import { StoryDescriptor, StoryMultilingual } from "./story";
-import { getAuthToken, isLoggedIn } from "./firebase";
+import { getAuthToken, isLoggedInSettled } from "./firebase";
 
 async function fetchParamsWithAuth(method: string) {
   return getAuthToken().then((token) => {
@@ -20,7 +20,12 @@ async function fetchParamsWithAuth(method: string) {
 }
 
 async function fetchParamsWithOptionalAuth(method: string) {
-  return isLoggedIn() ? fetchParamsWithAuth(method) : { method: method };
+  // Await the initial Firebase auth hydration: a synchronous check here could
+  // be stale on page load and produce an unauthenticated request for a
+  // resource that requires the token (e.g. a generated story).
+  return (await isLoggedInSettled())
+    ? fetchParamsWithAuth(method)
+    : { method: method };
 }
 
 export function apiUrl(path: string) {
@@ -58,7 +63,10 @@ export function useGeneratedStoryListQuery(l: string, r: string) {
   url.searchParams.append("r", r);
 
   return useQuery<StoryDescriptor[]>({
-    queryKey: ["generated-story-list"],
+    // l and r must be part of the key: the request URL depends on them, and a
+    // locale-agnostic key would serve one language pair's cached list to
+    // another after a settings change.
+    queryKey: ["generated-story-list", l, r],
     queryFn: async () =>
       fetchParamsWithAuth("GET").then((params) =>
         fetch(url, params).then((res) => {
@@ -433,40 +441,6 @@ export function useRemoveWordMutation() {
       queryClient.invalidateQueries({ queryKey: ["my-dictionary"] });
     },
     retry: false,
-  });
-}
-
-export function useExplainQuery(
-  storyId: string,
-  l: string,
-  r: string,
-  lSentenceIdx: number,
-  rSentenceIdx: number,
-) {
-  let url = new URL(`${API_URL}/explain`);
-  url.searchParams.append("l_sentence_idx", lSentenceIdx.toString());
-  url.searchParams.append("r_sentence_idx", rSentenceIdx.toString());
-  url.searchParams.append("story_id", storyId);
-  url.searchParams.append("l", l);
-  url.searchParams.append("r", r);
-
-  return useQuery<string>({
-    queryKey: ["explain", storyId, l, r, lSentenceIdx, rSentenceIdx],
-    queryFn: async () =>
-      fetchParamsWithOptionalAuth("GET").then((params) =>
-        fetch(url, params).then((res) => {
-          if (res.ok) {
-            return res.json().then((obj) => {
-              return obj.content;
-            });
-          } else {
-            console.error("Unexpected result for", url);
-            console.error(res);
-            throw new Error("Unexpected result for explain query");
-          }
-        }),
-      ),
-    retry: 2,
   });
 }
 

@@ -104,10 +104,10 @@ mkdir /var/cache/l-api
 chown www-data:www-data /var/cache/l-api
 chmod 700 /var/cache/l-api
 
-# install golang
+# install golang (the version must satisfy the `go` directive in src/go.mod)
 cd
-wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz
-rm -rf /usr/local/go && tar -C /usr/local -xzf go1.23.4.linux-amd64.tar.gz
+wget https://go.dev/dl/go1.25.0.linux-amd64.tar.gz
+rm -rf /usr/local/go && tar -C /usr/local -xzf go1.25.0.linux-amd64.tar.gz
 
 #include certbot
 apt install certbot python3-certbot-nginx

@@ -192,7 +192,9 @@ function StoryButton({
           </div>
         )}
         {onDelete && (
-          <div
+          <button
+            type="button"
+            aria-label={lstr(l).delete_story_button_label}
             className="flex items-center justify-center min-w-[40px] text-muted-text hover:text-red-500 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
@@ -200,7 +202,7 @@ function StoryButton({
             }}
           >
             <FaTrashCan size={14} />
-          </div>
+          </button>
         )}
       </div>
     </Button>
@@ -357,23 +359,23 @@ export function StoryMenu({
         >
           <div className="flex flex-col items-center gap-4 py-2">
             <p className="text-lg font-semibold text-main-text">
-              Delete this story?
+              {lstr(l).delete_story_confirm_title}
             </p>
             <p className="text-secondary-text text-sm">
-              The story and all its data will be permanently removed.
+              {lstr(l).delete_story_confirm_message}
             </p>
             <div className="flex gap-3 mt-2 w-full">
               <button
                 className="flex-1 py-2.5 rounded-xl font-semibold border border-border bg-surface hover:bg-cream-dark transition-colors"
                 onClick={() => setConfirmDeleteId(null)}
               >
-                Cancel
+                {lstr(l).cancel_button}
               </button>
               <button
                 className="flex-1 py-2.5 rounded-xl font-semibold bg-red-500 hover:bg-red-600 text-white transition-colors"
                 onClick={confirmDelete}
               >
-                Delete
+                {lstr(l).delete_story_confirm_button}
               </button>
             </div>
           </div>
@@ -436,7 +438,9 @@ export function StoryMenu({
         )}
 
       {queryGenerated.isError && (
-        <div className="text-red-600 text-sm mt-2">{lstr(l).loading_story_list_error}</div>
+        <div className="text-red-600 text-sm mt-2">
+          {lstr(l).loading_generated_story_list_error}
+        </div>
       )}
 
       <header className="text-left text-2xl font-semibold text-main-text mt-10 mb-3">

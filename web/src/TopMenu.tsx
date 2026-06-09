@@ -88,6 +88,7 @@ export function TopMenu({
         <button
           type="button"
           onClick={setShowSettingsMenu}
+          aria-label={lstr(settings.lLocale).settings_title}
           className="flex items-center justify-center h-[48px] w-[44px] text-[22px] text-secondary-text transition-colors hover:text-main-text"
         >
           <RiSettings3Fill />
@@ -131,6 +132,8 @@ function UserAvatar({ user, locale }: { user: User; locale: string }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        aria-label={lstr(locale).account_menu_label}
+        aria-expanded={open}
         className="flex items-center justify-center rounded-full transition-opacity hover:opacity-80"
       >
         {photoURL ? (

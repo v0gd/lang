@@ -22,10 +22,12 @@ root.render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <App />
-      <ReactQueryDevtools
-        initialIsOpen={false}
-        buttonPosition={"bottom-right"}
-      />
+      {process.env.NODE_ENV === "development" && (
+        <ReactQueryDevtools
+          initialIsOpen={false}
+          buttonPosition={"bottom-right"}
+        />
+      )}
     </QueryClientProvider>
   </React.StrictMode>,
 );

@@ -1,80 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Sentence } from "./story";
 import {
   SAVE_WORD_LIMIT_ERROR,
-  useExplainQuery,
   useRemoveWordMutation,
   useSaveWordMutation,
   useWordExplainQuery,
 } from "./queries";
-import { API_URL } from "./config";
-import { isLoggedIn } from "./firebase";
-import { Modal } from "./Modal";
+import { useLoggedIn } from "./firebase";
 import { lstr } from "./localization";
-
-export function ExplanationModal({
-  storyId,
-  l,
-  r,
-  lSentence,
-  rSentence,
-  closeModal,
-}: {
-  storyId: string;
-  l: string;
-  r: string;
-  lSentence: Sentence;
-  rSentence: Sentence;
-  closeModal: () => void;
-}) {
-  const query = useExplainQuery(
-    storyId,
-    l,
-    r,
-    lSentence.index,
-    rSentence.index,
-  );
-
-  let audioUrl = new URL(`${API_URL}/audio`);
-  audioUrl.searchParams.append("story_id", storyId);
-  audioUrl.searchParams.append("locale", r);
-  audioUrl.searchParams.append("sentence_idx", rSentence.index.toString());
-
-  return (
-    <Modal
-      showCloseButton={true}
-      locale={l}
-      closeModal={closeModal}
-      height="h-[90%] max-h-[1200px]"
-    >
-      <div className="flex flex-col px-2 pt-2">
-        <div className="text-lg text-main-text font-semibold leading-relaxed">
-          {rSentence.text}
-        </div>
-        <div className="text-lg font-medium text-secondary-text mt-3 leading-relaxed">
-          {lSentence.text}
-        </div>
-        {lSentence.hasAudio && (
-          <div className="mt-4">
-            <audio src={audioUrl.toString()} controls></audio>
-          </div>
-        )}
-        {query.isPending && (
-          <div className="mt-8 text-secondary-text">{lstr(l).loading_explain}</div>
-        )}
-        {query.isError && (
-          <div className="mt-8 text-red-600">{lstr(l).loading_explain_error}</div>
-        )}
-        {query.isSuccess && (
-          <div
-            className="mt-8 flex flex-col gap-4 text-main-text leading-relaxed"
-            dangerouslySetInnerHTML={{ __html: query.data }}
-          ></div>
-        )}
-      </div>
-    </Modal>
-  );
-}
 
 export function WordExplanationPopup({
   storyId,
@@ -211,8 +143,11 @@ function SaveWordButton({
 }) {
   const saveMutation = useSaveWordMutation();
   const removeMutation = useRemoveWordMutation();
+  // Reactive hook (not the synchronous isLoggedIn()) so the button doesn't
+  // render in the wrong state while Firebase is still hydrating auth.
+  const loggedIn = useLoggedIn();
 
-  if (!isLoggedIn()) {
+  if (!loggedIn) {
     return null;
   }
 

@@ -32,6 +32,15 @@ export function isLoggedIn() {
   return !!auth.currentUser;
 }
 
+// isLoggedInSettled waits for Firebase to finish loading the persisted auth
+// state before answering. Use this on data paths (request building) where the
+// synchronous isLoggedIn() could be stale during the initial page load and
+// cause an authenticated request to go out without a token.
+export async function isLoggedInSettled(): Promise<boolean> {
+  await auth.authStateReady();
+  return !!auth.currentUser;
+}
+
 // It takes some time for the auth state to be loaded, returned loggedIn
 // can be stale for a short period of time.
 export function useLoggedIn() {

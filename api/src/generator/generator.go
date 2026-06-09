@@ -30,12 +30,12 @@ func Setup() {
 	storeStmt, err = db.Db.Prepare(
 		"INSERT INTO story (id, author_id, language_level, locales, titles, input_params, content, source) " +
 			"VALUES (?, ?, ?, ?, ?, ?, ?, ?) " +
-			"ON DUPLICATE KEY UPDATE locales = locales;") // Duplicate key should neven happen
+			"ON DUPLICATE KEY UPDATE locales = locales;") // Duplicate key should never happen
 	if err != nil {
 		panic(err)
 	}
 	loadStmt, err = db.Db.Prepare(
-		"SELECT content FROM story " +
+		"SELECT content, author_id FROM story " +
 			"WHERE id = ? and deleted = 0;")
 	if err != nil {
 		panic(err)
@@ -298,7 +298,7 @@ func translateStory(ctx context.Context, l string, r string, s string) (string, 
 
 func logIfError(msg string, err error) {
 	if err != nil {
-		fmt.Printf("%s: %v\n", msg, err)
+		slog.Error(fmt.Sprintf("%s: %v", msg, err))
 	}
 }
 
@@ -353,18 +353,21 @@ func List(authorId string, _ story.Locale, r story.Locale) ([]story.StoryDescrip
 	return descs, nil
 }
 
-func Get(id story.Id) (story.StoryMultilingual, error) {
+// Get loads a generated story by id and returns it together with the Firebase
+// UID of its author, so callers can enforce ownership before serving the story.
+func Get(id story.Id) (story.StoryMultilingual, string, error) {
 	var content string
-	err := loadStmt.QueryRow(id).Scan(&content)
+	var authorId string
+	err := loadStmt.QueryRow(id).Scan(&content, &authorId)
 	if err != nil {
-		return story.StoryMultilingual{}, fmt.Errorf("failed to load story from db: %w", err)
+		return story.StoryMultilingual{}, "", fmt.Errorf("failed to load story from db: %w", err)
 	}
 	s := story.StoryMultilingual{}
 	err = json.Unmarshal([]byte(content), &s)
 	if err != nil {
-		return story.StoryMultilingual{}, fmt.Errorf("failed to unmarshal story: %w", err)
+		return story.StoryMultilingual{}, "", fmt.Errorf("failed to unmarshal story: %w", err)
 	}
-	return s, nil
+	return s, authorId, nil
 }
 
 func Delete(id story.Id, authorId string) (int64, error) {

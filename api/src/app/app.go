@@ -10,10 +10,14 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
+	"lang/api/db"
 	"lang/api/dictionary"
 	"lang/api/explanation"
 	"lang/api/firebase"
@@ -35,8 +39,7 @@ var (
 	CURATED_STORY_LIST        = []string{"beneath-peeling-paint/C1"}
 	ALLOWED_ORIGINS           = getAllowedOrigins()
 	CURATED_STORIES_DIR       = osutil.MustGetEnv("LANG_API_CURATED_STORIES_DIR")
-	DEBUG_MODE        = osutil.MustGetEnv("LANG_API_DEBUG_MODE") == "1"
-	IS_DEV            = osutil.MustGetEnv("LANG_API_IS_DEV") == "1"
+	DEBUG_MODE                = osutil.MustGetEnv("LANG_API_DEBUG_MODE") == "1"
 )
 
 // handlerFunc is a custom type that returns an error we can handle uniformly.
@@ -69,32 +72,43 @@ func wrapError(h handlerFunc) http.HandlerFunc {
 	}
 }
 
+// authenticateRequest verifies the Firebase ID token in the Authorization
+// header and resolves the internal user. It is used both by wrapAuth (for
+// always-authenticated endpoints) and by handlers that only require auth for
+// a subset of resources (generated stories on /story and /audio).
+func authenticateRequest(r *http.Request) (user.User, error) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		return user.User{}, newHTTPError(http.StatusUnauthorized, "Missing Authorization header")
+	}
+
+	prefix := "Bearer "
+	if !strings.HasPrefix(authHeader, prefix) {
+		return user.User{}, newHTTPError(http.StatusUnauthorized, "Invalid Authorization header")
+	}
+	idToken := strings.TrimPrefix(authHeader, prefix)
+
+	token, err := firebase.Auth.VerifyIDToken(r.Context(), idToken)
+	if err != nil {
+		return user.User{}, newHTTPError(http.StatusUnauthorized, "Invalid Authorization header")
+	}
+
+	// Resolve (and lazily create) the internal user once, here at the
+	// boundary, so every authenticated handler receives a fully-resolved
+	// User and account-wide checks live in a single place.
+	resolvedUser, err := user.Resolve(r.Context(), token.UID)
+	if err != nil {
+		return user.User{}, fmt.Errorf("failed to resolve user: %w", err)
+	}
+	return resolvedUser, nil
+}
+
 func wrapAuth(next handlerFuncWithAuth) handlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) error {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			return newHTTPError(http.StatusUnauthorized, "Missing Authorization header")
-		}
-
-		prefix := "Bearer "
-		if !strings.HasPrefix(authHeader, prefix) {
-			return newHTTPError(http.StatusUnauthorized, "Invalid Authorization header")
-		}
-		idToken := strings.TrimPrefix(authHeader, prefix)
-
-		token, err := firebase.Auth.VerifyIDToken(context.Background(), idToken)
+		resolvedUser, err := authenticateRequest(r)
 		if err != nil {
-			return newHTTPError(http.StatusUnauthorized, "Invalid Authorization header")
+			return err
 		}
-
-		// Resolve (and lazily create) the internal user once, here at the
-		// boundary, so every authenticated handler receives a fully-resolved
-		// User and account-wide checks live in a single place.
-		resolvedUser, err := user.Resolve(r.Context(), token.UID)
-		if err != nil {
-			return fmt.Errorf("failed to resolve user: %w", err)
-		}
-
 		return next(w, r, resolvedUser)
 	}
 }
@@ -234,15 +248,38 @@ func mustExtractLevel(req *http.Request) (story.Level, error) {
 	return "", newHTTPError(http.StatusBadRequest, "Invalid 'level' parameter: '%s'", levelStr)
 }
 
-func findStory(storyID string) (story.StoryMultilingual, error) {
-	if strings.HasPrefix(storyID, "g_") {
-		st, err := generator.Get(storyID)
+func isGeneratedStoryId(storyID string) bool {
+	return strings.HasPrefix(storyID, "g_")
+}
+
+// findStoryAuthorized loads a story and enforces access control: curated
+// stories are public, while generated stories belong to their author and
+// require an authenticated request. maybeUser carries the already-resolved
+// user for handlers behind wrapAuth; pass nil for public endpoints, in which
+// case the request is authenticated on demand. A foreign story id returns 404
+// (not 403) so that probing for other users' story ids reveals nothing.
+func findStoryAuthorized(req *http.Request, storyID string, maybeUser *user.User) (story.StoryMultilingual, error) {
+	if isGeneratedStoryId(storyID) {
+		st, authorId, err := generator.Get(storyID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return story.StoryMultilingual{}, newHTTPError(http.StatusNotFound, "Story not found")
 			} else {
 				return story.StoryMultilingual{}, err
 			}
+		}
+		var u user.User
+		if maybeUser != nil {
+			u = *maybeUser
+		} else {
+			u, err = authenticateRequest(req)
+			if err != nil {
+				return story.StoryMultilingual{}, err
+			}
+		}
+		if authorId != u.FirebaseUid {
+			slog.Warn(fmt.Sprintf("User %s denied access to story %s owned by another user", u.FirebaseUid, storyID))
+			return story.StoryMultilingual{}, newHTTPError(http.StatusNotFound, "Story not found")
 		}
 		return st, nil
 	} else {
@@ -408,7 +445,7 @@ func getStoryHandler(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	st, err := findStory(storyId)
+	st, err := findStoryAuthorized(req, storyId, nil)
 	if err != nil {
 		return err
 	}
@@ -428,7 +465,7 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request, u user.User
 	if err != nil {
 		return err
 	}
-	st, err := findStory(storyID)
+	st, err := findStoryAuthorized(req, storyID, &u)
 	if err != nil {
 		return err
 	}
@@ -514,12 +551,16 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request, u user.User
 	}
 }
 
+// getAudioHandler serves sentence TTS audio. Curated stories are public (the
+// set of valid sentences is finite and the audio is cached after the first
+// synthesis); generated stories require an authenticated owner, which also
+// keeps strangers from burning Polly credits against arbitrary story ids.
 func getAudioHandler(w http.ResponseWriter, req *http.Request) error {
 	storyID, err := mustExtractParam(req, "story_id")
 	if err != nil {
 		return err
 	}
-	st, err := findStory(storyID)
+	st, err := findStoryAuthorized(req, storyID, nil)
 	if err != nil {
 		return err
 	}
@@ -539,7 +580,7 @@ func getAudioHandler(w http.ResponseWriter, req *http.Request) error {
 		return err
 	}
 	// Strip gender markers so TTS doesn't try to pronounce "{n}" etc.
-	path, tErr := tts.Get(gender.Strip(sent.ToPlainStr()), locale, storyID, idx)
+	path, tErr := tts.Get(req.Context(), gender.Strip(sent.ToPlainStr()), locale, storyID, idx)
 	if tErr != nil {
 		return fmt.Errorf("tts.Get error: %w", tErr)
 	}
@@ -873,6 +914,17 @@ func cookieAcceptHandler(w http.ResponseWriter, req *http.Request) error {
 	return writeJSON(w, map[string]any{})
 }
 
+// healthzHandler reports process liveness plus DB reachability, so a load
+// balancer or uptime monitor can detect a wedged database connection and not
+// just a dead process.
+func healthzHandler(w http.ResponseWriter, req *http.Request) error {
+	if err := db.Db.PingContext(req.Context()); err != nil {
+		slog.Error(fmt.Sprintf("healthz: database ping failed: %v", err))
+		return newHTTPError(http.StatusServiceUnavailable, "database unreachable")
+	}
+	return writeJSON(w, map[string]any{"status": "ok"})
+}
+
 func indexHandler(w http.ResponseWriter, req *http.Request) error {
 	_, _ = w.Write([]byte("<h1>Hello!</h1>"))
 	return nil
@@ -911,8 +963,37 @@ func Serve() error {
 	mux.HandleFunc("/audio", wrap(wrapMustBeMethod("GET", getAudioHandler)))
 	mux.HandleFunc("/image", wrap(wrapMustBeMethod("GET", getImageHandler)))
 	mux.HandleFunc("/cookie-accept", wrap(wrapMustBeMethod("GET", cookieAcceptHandler)))
+	mux.HandleFunc("/healthz", wrap(wrapMustBeMethod("GET", healthzHandler)))
 	mux.HandleFunc("/", wrap(wrapMustBeMethod("GET", indexHandler)))
 
-	slog.Info("Server is running on http://localhost:5001")
-	return http.ListenAndServe(":5001", mux)
+	server := &http.Server{
+		Addr:    ":5001",
+		Handler: mux,
+	}
+
+	// Graceful shutdown: on SIGINT/SIGTERM stop accepting new connections and
+	// give in-flight requests (LLM generation can take a while) time to
+	// finish before the process exits.
+	shutdownCtx, stopSignalHandler := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stopSignalHandler()
+
+	serveErrChannel := make(chan error, 1)
+	go func() {
+		slog.Info("Server is running on http://localhost:5001")
+		serveErrChannel <- server.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serveErrChannel:
+		return fmt.Errorf("server failed: %w", err)
+	case <-shutdownCtx.Done():
+		slog.Info("Shutdown signal received, draining in-flight requests")
+		drainCtx, cancelDrain := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancelDrain()
+		if err := server.Shutdown(drainCtx); err != nil {
+			return fmt.Errorf("graceful shutdown failed: %w", err)
+		}
+		slog.Info("Server shut down cleanly")
+		return nil
+	}
 }

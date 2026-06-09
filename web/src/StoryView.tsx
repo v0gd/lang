@@ -114,7 +114,7 @@ function SentenceView({
   const { activePopup, openPopup } = useContext(PopupContext);
 
   const onWordClick = useCallback(
-    (e: React.MouseEvent, wordIdx: number) => {
+    (e: React.MouseEvent | React.KeyboardEvent, wordIdx: number) => {
       // Skip the popup when the click is really the end of a drag-select:
       // we want users to be able to highlight prose for copy / external
       // lookup without hijacking the release into an explanation popup.
@@ -183,8 +183,16 @@ function SentenceView({
           <Fragment key={idx}>
             {leading}
             <span
+              role="button"
+              tabIndex={0}
               className={`cursor-pointer hover:bg-highlight-light rounded px-[1px] transition-colors ${genderClass} ${isActive ? "bg-highlight relative" : ""}`}
               onClick={(e) => onWordClick(e, currentWordIdx)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onWordClick(e, currentWordIdx);
+                }
+              }}
             >
               {word}
               {isActive && (
@@ -227,9 +235,7 @@ function ParagraphView({
 }) {
   if (lParagraph.sentences.length !== rParagraph.sentences.length) {
     console.error("Paragraph sentences are not aligned");
-    return (
-      <div className="text-red-800">Paragraph sentences are not aligned</div>
-    );
+    return <div className="text-red-800">{lstr(l).story_alignment_error}</div>;
   }
 
   return (
@@ -346,12 +352,12 @@ function ChapterView({
 }) {
   if (lChapter.paragraphs.length !== rChapter.paragraphs.length) {
     console.error("Chapter paragraphs are not aligned");
-    return (
-      <div className="text-red-800">Chapter paragraphs are not aligned</div>
-    );
+    return <div className="text-red-800">{lstr(l).story_alignment_error}</div>;
   }
 
-  const paragraphGap = shouldShowTranslation ? 8 : 4;
+  // Full class names on purpose: Tailwind's JIT scanner can't see classes
+  // assembled from runtime template strings like `gap-${n}`.
+  const paragraphGapClass = shouldShowTranslation ? "gap-8" : "gap-4";
 
   return (
     <div>
@@ -360,7 +366,7 @@ function ChapterView({
           {rChapter.title}
         </h2>
       )}
-      <div className={`flex flex-col gap-${paragraphGap} mt-5`}>
+      <div className={`flex flex-col ${paragraphGapClass} mt-5`}>
         {rChapter.paragraphs.map((paragraph, index) => (
           <ParagraphView
             key={index}
@@ -434,10 +440,8 @@ function StoryView({
   const effectiveShowTranslation = shouldShowTranslation && hasLStory;
 
   if (lStory.chapters.length !== rStory.chapters.length) {
-    console.error("Story paragraphs are not aligned");
-    return (
-      <div className="text-red-800">Story paragraphs are not aligned</div>
-    );
+    console.error("Story chapters are not aligned");
+    return <div className="text-red-800">{lstr(l).story_alignment_error}</div>;
   }
 
   const applyGenderColors = colorNounGenders && supportsGenderColoring(r);

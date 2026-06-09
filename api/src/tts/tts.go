@@ -7,10 +7,11 @@ import (
 	"lang/api/cache"
 	"lang/api/osutil"
 	"lang/api/telemetry"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
@@ -24,7 +25,7 @@ var client *polly.Client
 func relativePath(filename string) string {
 	dir, err := os.Getwd()
 	if err != nil {
-		log.Fatalf("Failed to get working directory: %v", err)
+		panic(fmt.Sprintf("Failed to get working directory: %v", err))
 	}
 	return filepath.Join(dir, filename)
 }
@@ -43,7 +44,19 @@ var (
 	}
 )
 
-// TODO: this is not thread safe
+// outputPathLocks serializes concurrent synthesis of the same audio file so
+// two cache misses for the same sentence don't both call Polly and clobber
+// each other's writes. Entries are never removed; the map is bounded by the
+// number of distinct sentences served since the process started.
+var outputPathLocks sync.Map
+
+func lockOutputPath(outputPath string) *sync.Mutex {
+	lock, _ := outputPathLocks.LoadOrStore(outputPath, &sync.Mutex{})
+	mutex := lock.(*sync.Mutex)
+	mutex.Lock()
+	return mutex
+}
+
 func generateAndCache(ctx context.Context, client *polly.Client, text, locale, outputPath string) error {
 	trace := telemetry.NewTrace("tts.generateAndCache")
 	defer trace.Stop()
@@ -77,29 +90,54 @@ func generateAndCache(ctx context.Context, client *polly.Client, text, locale, o
 	}
 	defer resp.AudioStream.Close()
 
-	file, err := os.Create(outputPath)
+	// Write to a temp file in the same directory and rename into place, so a
+	// failed or interrupted write never leaves a truncated mp3 behind that
+	// would then be served forever as a "cached" file.
+	tempFile, err := os.CreateTemp(filepath.Dir(outputPath), filepath.Base(outputPath)+".tmp-*")
 	if err != nil {
-		return fmt.Errorf("failed to create output file: %w", err)
+		return fmt.Errorf("failed to create temp output file: %w", err)
 	}
-	defer file.Close()
+	tempPath := tempFile.Name()
+	removeTemp := func() {
+		if removeErr := os.Remove(tempPath); removeErr != nil && !os.IsNotExist(removeErr) {
+			slog.Error(fmt.Sprintf("Failed to remove temp TTS file %s: %v", tempPath, removeErr))
+		}
+	}
 
-	if _, err := io.Copy(file, resp.AudioStream); err != nil {
+	if _, err := io.Copy(tempFile, resp.AudioStream); err != nil {
+		_ = tempFile.Close()
+		removeTemp()
 		return fmt.Errorf("failed to write audio: %w", err)
+	}
+	if err := tempFile.Close(); err != nil {
+		removeTemp()
+		return fmt.Errorf("failed to close audio file: %w", err)
+	}
+	if err := os.Rename(tempPath, outputPath); err != nil {
+		removeTemp()
+		return fmt.Errorf("failed to move audio file into place: %w", err)
 	}
 
 	return nil
 }
 
-func Get(text, locale, storyDir string, sentenceIdx int) (string, error) {
+// Get returns the path to the cached mp3 for the given sentence, synthesizing
+// it via Polly on first use. Concurrent requests for the same sentence are
+// serialized so only one of them pays for synthesis.
+func Get(ctx context.Context, text, locale, storyDir string, sentenceIdx int) (string, error) {
 	dirPath := cache.Path(fmt.Sprintf("stories/%s/%s", storyDir, locale))
 	if err := os.MkdirAll(dirPath, 0755); err != nil {
 		return "", fmt.Errorf("failed to create directory: %w", err)
 	}
 
 	outputPath := filepath.Join(dirPath, fmt.Sprintf("%d.mp3", sentenceIdx))
+
+	mutex := lockOutputPath(outputPath)
+	defer mutex.Unlock()
+
 	if _, err := os.Stat(outputPath); os.IsNotExist(err) {
-		log.Printf("Generating audio at %s", outputPath)
-		if err := generateAndCache(context.TODO(), client, text, locale, outputPath); err != nil {
+		slog.Info(fmt.Sprintf("Generating audio at %s", outputPath))
+		if err := generateAndCache(ctx, client, text, locale, outputPath); err != nil {
 			return "", err
 		}
 	}
@@ -107,7 +145,7 @@ func Get(text, locale, storyDir string, sentenceIdx int) (string, error) {
 }
 
 func Setup() {
-	log.Println("Setting up Polly client")
+	slog.Info("Setting up Polly client")
 
 	awsAccessKeyID := osutil.MustGetEnv("AWS_POLLY_ACCESS_KEY_ID")
 	awsSecretAccessKey := osutil.MustGetEnv("AWS_POLLY_SECRET_ACCESS_KEY")
@@ -121,17 +159,17 @@ func Setup() {
 		)),
 	)
 	if err != nil {
-		log.Fatalf("Failed to load AWS configuration: %v", err)
+		panic(fmt.Sprintf("Failed to load AWS configuration: %v", err))
 	}
 
 	client = polly.NewFromConfig(cfg)
-	log.Println("Polly client setup complete")
+	slog.Info("Polly client setup complete")
 }
 
 func Test() {
-	log.Println("Running TTS test")
-	if err := generateAndCache(context.TODO(), client, "Hello, world!", "en", relativePath("hello.mp3")); err != nil {
-		log.Fatalf("Error generating audio: %v", err)
+	slog.Info("Running TTS test")
+	if err := generateAndCache(context.Background(), client, "Hello, world!", "en", relativePath("hello.mp3")); err != nil {
+		panic(fmt.Sprintf("Error generating audio: %v", err))
 	}
-	log.Println("Done")
+	slog.Info("Done")
 }

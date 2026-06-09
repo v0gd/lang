@@ -6,6 +6,7 @@ export interface LocalizationStrings {
   loading_story: string;
   loading_story_error: string;
   story_not_found_error: string;
+  story_alignment_error: string;
   loading_explain: string;
   loading_explain_error: string;
   save_word_button: string;
@@ -31,6 +32,7 @@ export interface LocalizationStrings {
   my_dictionary_delete_cancel: string;
   my_dictionary_deleting: string;
   my_dictionary_delete_error: string;
+  my_dictionary_login_prompt: string;
   settings_title: string;
   settings_i_speak: string;
   settings_i_learn: string;
@@ -82,6 +84,31 @@ export interface LocalizationStrings {
   generate_level_required: string;
   generate_error: string;
   generate_in_progress: string;
+  delete_story_confirm_title: string;
+  delete_story_confirm_message: string;
+  delete_story_confirm_button: string;
+  delete_story_button_label: string;
+  account_menu_label: string;
+  login_title_signin: string;
+  login_title_signup: string;
+  login_subtitle_signin: string;
+  login_subtitle_signup: string;
+  login_email_label: string;
+  login_password_label: string;
+  login_submit_signin: string;
+  login_submit_signup: string;
+  login_or: string;
+  login_google_button: string;
+  login_toggle_to_signup_question: string;
+  login_toggle_to_signin_question: string;
+  login_toggle_to_signup: string;
+  login_toggle_to_signin: string;
+  login_error_invalid_credentials: string;
+  login_error_email_in_use: string;
+  login_error_weak_password: string;
+  login_error_invalid_email: string;
+  login_error_too_many_requests: string;
+  login_error_generic: string;
   levels: Record<string, string>;
   moods: Record<string, string>;
   topics: Record<string, string>;
@@ -98,6 +125,8 @@ const strings = new Map<string, LocalizationStrings>([
       loading_story: "Loading story...",
       loading_story_error: "Error loading story",
       story_not_found_error: "Story not found :(",
+      story_alignment_error:
+        "This story's translation doesn't line up — try regenerating it",
       loading_explain: "Loading explanation...",
       loading_explain_error: "Error loading explanation",
       save_word_button: "Save to my dictionary",
@@ -125,6 +154,7 @@ const strings = new Map<string, LocalizationStrings>([
       my_dictionary_delete_cancel: "Cancel",
       my_dictionary_deleting: "Deleting...",
       my_dictionary_delete_error: "Couldn't delete — try again",
+      my_dictionary_login_prompt: "Log in to see your saved words",
       settings_title: "Settings",
       settings_i_speak: "I speak:",
       settings_i_learn: "I learn:",
@@ -182,6 +212,34 @@ const strings = new Map<string, LocalizationStrings>([
       generate_level_required: "Choose a level",
       generate_error: "Error — try again",
       generate_in_progress: "Generating...",
+      delete_story_confirm_title: "Delete this story?",
+      delete_story_confirm_message:
+        "The story and all its data will be permanently removed.",
+      delete_story_confirm_button: "Delete",
+      delete_story_button_label: "Delete story",
+      account_menu_label: "Account menu",
+      login_title_signin: "Welcome Back",
+      login_title_signup: "Create Account",
+      login_subtitle_signin: "Sign in to continue your experience",
+      login_subtitle_signup: "Sign up to start your journey",
+      login_email_label: "Email",
+      login_password_label: "Password",
+      login_submit_signin: "Sign In",
+      login_submit_signup: "Create Account",
+      login_or: "OR",
+      login_google_button: "Continue with Google",
+      login_toggle_to_signup_question: "Don't have an account yet? ",
+      login_toggle_to_signin_question: "Already have an account? ",
+      login_toggle_to_signup: "Sign up",
+      login_toggle_to_signin: "Sign in",
+      login_error_invalid_credentials: "Wrong email or password",
+      login_error_email_in_use: "An account with this email already exists",
+      login_error_weak_password:
+        "Password is too weak — use at least 6 characters",
+      login_error_invalid_email: "This email address doesn't look right",
+      login_error_too_many_requests:
+        "Too many attempts — please wait a moment and try again",
+      login_error_generic: "Sign-in failed — please try again",
       levels: {
         A1: "Beginner",
         B1: "Intermediate",
@@ -228,6 +286,8 @@ const strings = new Map<string, LocalizationStrings>([
       loading_story: "Lade Geschichte...",
       loading_story_error: "Fehler beim Laden der Geschichte",
       story_not_found_error: "Geschichte nicht gefunden :(",
+      story_alignment_error:
+        "Die Übersetzung dieser Geschichte passt nicht zusammen — bitte neu generieren",
       loading_explain: "Lade Erklärung...",
       loading_explain_error: "Fehler beim Laden der Erklärung",
       save_word_button: "In mein Wörterbuch speichern",
@@ -256,6 +316,8 @@ const strings = new Map<string, LocalizationStrings>([
       my_dictionary_delete_cancel: "Abbrechen",
       my_dictionary_deleting: "Wird gelöscht...",
       my_dictionary_delete_error: "Löschen fehlgeschlagen — bitte erneut versuchen",
+      my_dictionary_login_prompt:
+        "Einloggen, um deine gespeicherten Wörter zu sehen",
       settings_title: "Einstellungen",
       settings_i_speak: "Ich spreche:",
       settings_i_learn: "Ich lerne:",
@@ -314,6 +376,35 @@ const strings = new Map<string, LocalizationStrings>([
       generate_level_required: "Niveau wählen",
       generate_error: "Fehler — erneut versuchen",
       generate_in_progress: "Wird generiert...",
+      delete_story_confirm_title: "Diese Geschichte löschen?",
+      delete_story_confirm_message:
+        "Die Geschichte und alle zugehörigen Daten werden dauerhaft entfernt.",
+      delete_story_confirm_button: "Löschen",
+      delete_story_button_label: "Geschichte löschen",
+      account_menu_label: "Kontomenü",
+      login_title_signin: "Willkommen zurück",
+      login_title_signup: "Konto erstellen",
+      login_subtitle_signin: "Melde dich an, um weiterzumachen",
+      login_subtitle_signup: "Registriere dich und leg los",
+      login_email_label: "E-Mail",
+      login_password_label: "Passwort",
+      login_submit_signin: "Anmelden",
+      login_submit_signup: "Konto erstellen",
+      login_or: "ODER",
+      login_google_button: "Mit Google fortfahren",
+      login_toggle_to_signup_question: "Noch kein Konto? ",
+      login_toggle_to_signin_question: "Schon ein Konto? ",
+      login_toggle_to_signup: "Registrieren",
+      login_toggle_to_signin: "Anmelden",
+      login_error_invalid_credentials: "Falsche E-Mail oder falsches Passwort",
+      login_error_email_in_use:
+        "Mit dieser E-Mail existiert bereits ein Konto",
+      login_error_weak_password:
+        "Passwort ist zu schwach — mindestens 6 Zeichen verwenden",
+      login_error_invalid_email: "Diese E-Mail-Adresse sieht nicht richtig aus",
+      login_error_too_many_requests:
+        "Zu viele Versuche — bitte kurz warten und erneut versuchen",
+      login_error_generic: "Anmeldung fehlgeschlagen — bitte erneut versuchen",
       levels: {
         A1: "Anfänger",
         B1: "Mittelstufe",
@@ -360,6 +451,8 @@ const strings = new Map<string, LocalizationStrings>([
       loading_story: "Загрузка истории...",
       loading_story_error: "Ошибка загрузки истории",
       story_not_found_error: "История не найдена :(",
+      story_alignment_error:
+        "Перевод этой истории не совпадает с оригиналом — попробуйте сгенерировать её заново",
       loading_explain: "Загрузка объяснения...",
       loading_explain_error: "Ошибка загрузки объяснения",
       save_word_button: "Сохранить в мой словарь",
@@ -387,6 +480,7 @@ const strings = new Map<string, LocalizationStrings>([
       my_dictionary_delete_cancel: "Отмена",
       my_dictionary_deleting: "Удаление...",
       my_dictionary_delete_error: "Не удалось удалить — попробуйте ещё раз",
+      my_dictionary_login_prompt: "Войдите, чтобы увидеть сохранённые слова",
       settings_title: "Настройки",
       settings_i_speak: "Я говорю на:",
       settings_i_learn: "Я учу:",
@@ -444,6 +538,34 @@ const strings = new Map<string, LocalizationStrings>([
       generate_level_required: "Выберите уровень",
       generate_error: "Ошибка — попробуйте снова",
       generate_in_progress: "Генерация...",
+      delete_story_confirm_title: "Удалить эту историю?",
+      delete_story_confirm_message:
+        "История и все её данные будут удалены безвозвратно.",
+      delete_story_confirm_button: "Удалить",
+      delete_story_button_label: "Удалить историю",
+      account_menu_label: "Меню аккаунта",
+      login_title_signin: "С возвращением",
+      login_title_signup: "Создать аккаунт",
+      login_subtitle_signin: "Войдите, чтобы продолжить",
+      login_subtitle_signup: "Зарегистрируйтесь, чтобы начать",
+      login_email_label: "Электронная почта",
+      login_password_label: "Пароль",
+      login_submit_signin: "Войти",
+      login_submit_signup: "Создать аккаунт",
+      login_or: "ИЛИ",
+      login_google_button: "Продолжить с Google",
+      login_toggle_to_signup_question: "Ещё нет аккаунта? ",
+      login_toggle_to_signin_question: "Уже есть аккаунт? ",
+      login_toggle_to_signup: "Зарегистрироваться",
+      login_toggle_to_signin: "Войти",
+      login_error_invalid_credentials: "Неверная почта или пароль",
+      login_error_email_in_use: "Аккаунт с этой почтой уже существует",
+      login_error_weak_password:
+        "Пароль слишком простой — используйте не менее 6 символов",
+      login_error_invalid_email: "Похоже, адрес почты указан неверно",
+      login_error_too_many_requests:
+        "Слишком много попыток — подождите немного и попробуйте снова",
+      login_error_generic: "Не удалось войти — попробуйте ещё раз",
       levels: {
         A1: "Начинающий",
         B1: "Средний",

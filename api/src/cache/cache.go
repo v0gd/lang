@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"lang/api/osutil"
+	"log/slog"
 	"os"
 	"path/filepath"
 )
@@ -15,7 +16,7 @@ func Setup() {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create cache directory: %v", err))
 	}
-	fmt.Println("Cache directory:", cacheDir)
+	slog.Info(fmt.Sprintf("Cache directory: %s", cacheDir))
 }
 
 func Path(subpath string) string {
