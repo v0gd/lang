@@ -414,12 +414,17 @@ func Delete(id story.Id, authorId string) (int64, error) {
 	if err != nil {
 		return 0, fmt.Errorf("failed to delete tts data: %w", err)
 	}
+	favoriteResult, err := tx.Exec("DELETE FROM user_favorite_story WHERE story_id = ?", id)
+	if err != nil {
+		return 0, fmt.Errorf("failed to delete favorite marks: %w", err)
+	}
 
 	weCount, _ := weResult.RowsAffected()
 	eCount, _ := eResult.RowsAffected()
 	ttsCount, _ := ttsResult.RowsAffected()
-	slog.Info(fmt.Sprintf("Deleting story %s: removed %d word_explanations, %d explanations, %d tts entries",
-		id, weCount, eCount, ttsCount))
+	favoriteCount, _ := favoriteResult.RowsAffected()
+	slog.Info(fmt.Sprintf("Deleting story %s: removed %d word_explanations, %d explanations, %d tts entries, %d favorite marks",
+		id, weCount, eCount, ttsCount, favoriteCount))
 
 	err = tx.Commit()
 	if err != nil {

@@ -137,6 +137,7 @@ export function useStoryQuery(storyId: string, l: string, r: string) {
               return {
                 id: obj.id,
                 localizations: new Map(Object.entries(obj.localizations)),
+                favorite: obj.favorite ?? false,
               };
             });
           } else if (res.status === 404) {
@@ -326,6 +327,44 @@ export function useUploadMutation() {
         if (isAbortError(err)) throw new CancelledError();
         throw err;
       }
+    },
+    retry: false,
+  });
+}
+
+// useSetFavoriteStoryMutation toggles the per-user favorite mark on a story
+// (generated or curated). Both story lists are invalidated so the refetched,
+// server-sorted lists move the story to/from the favorites block at the top.
+// Cached story objects (the reading view) are patched in place instead of
+// invalidated, because the story content is deliberately cached for hours and
+// only the favorite flag changed.
+export function useSetFavoriteStoryMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      storyId,
+      favorite,
+    }: {
+      storyId: string;
+      favorite: boolean;
+    }) => {
+      const url = apiUrl(favorite ? "/favorite-story" : "/unfavorite-story");
+      url.searchParams.append("story_id", storyId);
+
+      const params = await fetchParamsWithAuth(favorite ? "POST" : "DELETE");
+      const res = await fetch(url, params);
+      if (!res.ok) {
+        console.error("Unexpected result for", url, res);
+        throw new Error("Unexpected result for favorite-story mutation");
+      }
+    },
+    onSuccess: (_data, { storyId, favorite }) => {
+      queryClient.invalidateQueries({ queryKey: ["story-list"] });
+      queryClient.invalidateQueries({ queryKey: ["generated-story-list"] });
+      queryClient.setQueriesData<StoryMultilingual>(
+        { queryKey: ["story", storyId] },
+        (old) => (old ? { ...old, favorite } : old),
+      );
     },
     retry: false,
   });

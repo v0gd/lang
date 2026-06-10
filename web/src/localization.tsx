@@ -88,6 +88,8 @@ export interface LocalizationStrings {
   delete_story_confirm_message: string;
   delete_story_confirm_button: string;
   delete_story_button_label: string;
+  favorite_story_button_label: string;
+  unfavorite_story_button_label: string;
   account_menu_label: string;
   login_title_signin: string;
   login_title_signup: string;
@@ -217,6 +219,8 @@ const strings = new Map<string, LocalizationStrings>([
         "The story and all its data will be permanently removed.",
       delete_story_confirm_button: "Delete",
       delete_story_button_label: "Delete story",
+      favorite_story_button_label: "Add to favorites",
+      unfavorite_story_button_label: "Remove from favorites",
       account_menu_label: "Account menu",
       login_title_signin: "Welcome Back",
       login_title_signup: "Create Account",
@@ -381,6 +385,8 @@ const strings = new Map<string, LocalizationStrings>([
         "Die Geschichte und alle zugehörigen Daten werden dauerhaft entfernt.",
       delete_story_confirm_button: "Löschen",
       delete_story_button_label: "Geschichte löschen",
+      favorite_story_button_label: "Zu Favoriten hinzufügen",
+      unfavorite_story_button_label: "Aus Favoriten entfernen",
       account_menu_label: "Kontomenü",
       login_title_signin: "Willkommen zurück",
       login_title_signup: "Konto erstellen",
@@ -543,6 +549,8 @@ const strings = new Map<string, LocalizationStrings>([
         "История и все её данные будут удалены безвозвратно.",
       delete_story_confirm_button: "Удалить",
       delete_story_button_label: "Удалить историю",
+      favorite_story_button_label: "Добавить в избранное",
+      unfavorite_story_button_label: "Убрать из избранного",
       account_menu_label: "Меню аккаунта",
       login_title_signin: "С возвращением",
       login_title_signup: "Создать аккаунт",

@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"syscall"
@@ -20,6 +21,7 @@ import (
 	"lang/api/db"
 	"lang/api/dictionary"
 	"lang/api/explanation"
+	"lang/api/favorite"
 	"lang/api/firebase"
 	"lang/api/gender"
 	"lang/api/generator"
@@ -404,8 +406,23 @@ func convertStoryToDict(st story.StoryMultilingual, l, r string) map[string]any 
 	}
 }
 
+// markFavoritesAndSort fills in the per-user Favorite flag on the descriptors
+// and moves favorites to the top. The sort is stable so the relative order of
+// the rest of the list is preserved.
+func markFavoritesAndSort(descriptors []story.StoryDescriptor, favoriteIds map[story.Id]bool) {
+	for i := range descriptors {
+		descriptors[i].Favorite = favoriteIds[descriptors[i].Id]
+	}
+	sort.SliceStable(descriptors, func(i, j int) bool {
+		return descriptors[i].Favorite && !descriptors[j].Favorite
+	})
+}
+
 // --- Handlers ---
 
+// getStoryListHandler lists curated stories. The endpoint is public, but when
+// the client sends an Authorization header the user's favorite marks are
+// applied and favorites are sorted to the top.
 func getStoryListHandler(w http.ResponseWriter, req *http.Request) error {
 	l, r, err := mustExtractLocalePair(req)
 	if err != nil {
@@ -429,6 +446,17 @@ func getStoryListHandler(w http.ResponseWriter, req *http.Request) error {
 		}
 		results = append(results, desc)
 	}
+	if req.Header.Get("Authorization") != "" {
+		u, err := authenticateRequest(req)
+		if err != nil {
+			return err
+		}
+		favoriteIds, err := favorite.StoryIdsForUser(req.Context(), u.Id)
+		if err != nil {
+			return fmt.Errorf("favorite.StoryIdsForUser error: %w", err)
+		}
+		markFavoritesAndSort(results, favoriteIds)
+	}
 	return writeJSON(w, results)
 }
 
@@ -445,7 +473,18 @@ func getStoryHandler(w http.ResponseWriter, req *http.Request) error {
 	if err != nil {
 		return err
 	}
-	st, err := findStoryAuthorized(req, storyId, nil)
+	// Authenticate up front when the client sent a token: findStoryAuthorized
+	// then doesn't have to authenticate again for generated stories, and the
+	// resolved user lets us report the per-user favorite mark.
+	var maybeUser *user.User
+	if req.Header.Get("Authorization") != "" {
+		u, err := authenticateRequest(req)
+		if err != nil {
+			return err
+		}
+		maybeUser = &u
+	}
+	st, err := findStoryAuthorized(req, storyId, maybeUser)
 	if err != nil {
 		return err
 	}
@@ -453,6 +492,13 @@ func getStoryHandler(w http.ResponseWriter, req *http.Request) error {
 		return newHTTPError(http.StatusNotFound, "Story not available in '%s'", r)
 	}
 	dict := convertStoryToDict(st, l, r)
+	if maybeUser != nil {
+		isFavorite, err := favorite.IsFavorite(req.Context(), maybeUser.Id, storyId)
+		if err != nil {
+			return fmt.Errorf("favorite.IsFavorite error: %w", err)
+		}
+		dict["favorite"] = isFavorite
+	}
 	return writeJSON(w, dict)
 }
 
@@ -672,8 +718,45 @@ func getGeneratedStoryListHandler(w http.ResponseWriter, req *http.Request, u us
 	if err != nil {
 		return fmt.Errorf("list error: %w", err)
 	}
+	favoriteIds, err := favorite.StoryIdsForUser(req.Context(), u.Id)
+	if err != nil {
+		return fmt.Errorf("favorite.StoryIdsForUser error: %w", err)
+	}
+	markFavoritesAndSort(stories, favoriteIds)
 	slog.Info(fmt.Sprintf("Listed %d generated stories for user %s", len(stories), u.FirebaseUid))
 	return writeJSON(w, stories)
+}
+
+// favoriteStoryHandler marks a story as a favorite of the requesting user.
+// The story must be accessible to the user (curated, or a generated story
+// they own); this also keeps the favorites table free of junk ids.
+func favoriteStoryHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
+	storyId, err := mustExtractParam(req, "story_id")
+	if err != nil {
+		return err
+	}
+	if _, err := findStoryAuthorized(req, storyId, &u); err != nil {
+		return err
+	}
+	slog.Info(fmt.Sprintf("Favoriting story %s for user %s", storyId, u.FirebaseUid))
+	if err := favorite.Add(req.Context(), u.Id, storyId); err != nil {
+		return fmt.Errorf("favorite.Add error: %w", err)
+	}
+	return writeJSON(w, map[string]any{"story_id": storyId})
+}
+
+// unfavoriteStoryHandler removes a favorite mark. Unfavoriting a story that
+// isn't a favorite (or no longer exists) is a successful no-op.
+func unfavoriteStoryHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
+	storyId, err := mustExtractParam(req, "story_id")
+	if err != nil {
+		return err
+	}
+	slog.Info(fmt.Sprintf("Unfavoriting story %s for user %s", storyId, u.FirebaseUid))
+	if err := favorite.Remove(req.Context(), u.Id, storyId); err != nil {
+		return fmt.Errorf("favorite.Remove error: %w", err)
+	}
+	return writeJSON(w, map[string]any{"story_id": storyId})
 }
 
 // scanMaxImages caps the number of images per /scan request so a single
@@ -956,6 +1039,8 @@ func Serve() error {
 	mux.HandleFunc("/upload", wrap(wrapMustBeMethod("POST", wrapAuth(uploadHandler))))
 	mux.HandleFunc("/generated-list", wrap(wrapMustBeMethod("GET", wrapAuth(getGeneratedStoryListHandler))))
 	mux.HandleFunc("/delete-generated", wrap(wrapMustBeMethod("DELETE", wrapAuth(deleteGeneratedStoryHandler))))
+	mux.HandleFunc("/favorite-story", wrap(wrapMustBeMethod("POST", wrapAuth(favoriteStoryHandler))))
+	mux.HandleFunc("/unfavorite-story", wrap(wrapMustBeMethod("DELETE", wrapAuth(unfavoriteStoryHandler))))
 	mux.HandleFunc("/save-word", wrap(wrapMustBeMethod("POST", wrapAuth(saveWordHandler))))
 	mux.HandleFunc("/remove-word", wrap(wrapMustBeMethod("DELETE", wrapAuth(removeWordHandler))))
 	mux.HandleFunc("/my-dictionary", wrap(wrapMustBeMethod("GET", wrapAuth(getMyDictionaryHandler))))

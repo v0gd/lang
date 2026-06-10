@@ -29,6 +29,9 @@ type StoryDescriptor struct {
 	Level   Level    `json:"level"`
 	Locales []Locale `json:"locales"`
 	Titles  []string `json:"titles"` // Titles in the order of locales
+	// Favorite is per-user state, filled in by the listing handlers for
+	// authenticated requests; it is not stored on the story itself.
+	Favorite bool `json:"favorite"`
 }
 
 type Token struct {

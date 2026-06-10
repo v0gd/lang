@@ -65,6 +65,17 @@ CREATE TABLE user (
     UNIQUE KEY user_firebase_uid_unique (firebase_uid)
 );
 
+-- A user's favorite stories, shown at the top of the story lists. story_id
+-- references either a generated story row in `story` or a curated story
+-- shipped as files on disk, so there is deliberately no foreign key on it.
+CREATE TABLE user_favorite_story (
+    user_id BIGINT UNSIGNED NOT NULL,
+    story_id VARCHAR(256) NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, story_id),
+    FOREIGN KEY (user_id) REFERENCES user(id)
+);
+
 -- Global, user-agnostic dictionary. Each row is one sense of a word in the
 -- learned language (r). The same spelling can have multiple rows (e.g.
 -- "die Bank" as bench vs financial institution, or a noun/verb pair), so

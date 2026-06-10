@@ -23,6 +23,8 @@ export interface Story {
 export interface StoryMultilingual {
   id: string;
   localizations: Map<string, Story>;
+  // Per-user favorite mark; false for anonymous requests.
+  favorite: boolean;
 }
 
 export interface StoryDescriptor {
@@ -30,4 +32,7 @@ export interface StoryDescriptor {
   level: string;
   locales: string[];
   titles: string[];
+  // Per-user favorite mark; false for anonymous requests. The backend sorts
+  // favorites to the top of both story lists.
+  favorite: boolean;
 }

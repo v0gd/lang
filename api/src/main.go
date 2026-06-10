@@ -9,6 +9,7 @@ import (
 	"lang/api/db"
 	"lang/api/dictionary"
 	"lang/api/explanation"
+	"lang/api/favorite"
 	"lang/api/firebase"
 	"lang/api/generator"
 	"lang/api/tts"
@@ -23,6 +24,7 @@ func main() {
 	generator.Setup()
 	explanation.Setup()
 	dictionary.Setup()
+	favorite.Setup()
 	tts.Setup()
 	if err := app.Serve(); err != nil {
 		slog.Error(err.Error())

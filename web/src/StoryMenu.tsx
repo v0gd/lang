@@ -5,6 +5,7 @@ import {
   useDeleteStoryMutation,
   useGeneratedStoryListQuery,
   useScanMutation,
+  useSetFavoriteStoryMutation,
   useStoryListQuery,
 } from "./queries";
 import { lstr } from "./localization";
@@ -14,6 +15,8 @@ import {
   FaTrashCan,
   FaCamera,
   FaPenToSquare,
+  FaStar,
+  FaRegStar,
 } from "react-icons/fa6";
 import { StoryDescriptor } from "./story";
 import getFlagEmoji from "./LanguageFlag";
@@ -157,6 +160,7 @@ function StoryButton({
   showLanguagesIfDontMatch: showLanguageFlagsIfDontMatch,
   onStorySelected,
   onDelete,
+  onToggleFavorite,
 }: {
   s: StoryDescriptor;
   l: string;
@@ -164,6 +168,8 @@ function StoryButton({
   showLanguagesIfDontMatch: boolean;
   onStorySelected: (storyId: string) => void;
   onDelete?: (storyId: string) => void;
+  // When set, a star toggle is shown; called with the new desired state.
+  onToggleFavorite?: (storyId: string, favorite: boolean) => void;
 }) {
   // The story is shown as a primary title in the learned language (r) with an
   // optional mother-tongue (l) subtitle. Stories generated without a mother
@@ -190,6 +196,27 @@ function StoryButton({
           <div className="flex items-center min-w-[40px] text-center">
             {s.locales.map((loc) => getFlagEmoji(loc)).join("")}
           </div>
+        )}
+        {onToggleFavorite && (
+          <button
+            type="button"
+            aria-label={
+              s.favorite
+                ? lstr(l).unfavorite_story_button_label
+                : lstr(l).favorite_story_button_label
+            }
+            className={`flex items-center justify-center min-w-[40px] transition-colors ${
+              s.favorite
+                ? "text-amber-400 hover:text-amber-500"
+                : "text-muted-text hover:text-amber-400"
+            }`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleFavorite(s.id, !s.favorite);
+            }}
+          >
+            {s.favorite ? <FaStar size={14} /> : <FaRegStar size={14} />}
+          </button>
         )}
         {onDelete && (
           <button
@@ -282,6 +309,7 @@ export function StoryMenu({
   const query = useStoryListQuery(l, r);
   const queryGenerated = useGeneratedStoryListQuery(l, r);
   const deleteMutation = useDeleteStoryMutation();
+  const favoriteMutation = useSetFavoriteStoryMutation();
   const scanMutation = useScanMutation();
   const scanAbortRef = useRef<AbortController | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -292,6 +320,11 @@ export function StoryMenu({
       deleteMutation.mutate(confirmDeleteId);
       setConfirmDeleteId(null);
     }
+  };
+
+  const toggleFavorite = (storyId: string, favorite: boolean) => {
+    if (favoriteMutation.isPending) return;
+    favoriteMutation.mutate({ storyId, favorite });
   };
 
   const handleScanFiles = (files: File[]) => {
@@ -432,6 +465,7 @@ export function StoryMenu({
                 r={r}
                 onStorySelected={onStorySelected}
                 onDelete={setConfirmDeleteId}
+                onToggleFavorite={toggleFavorite}
                 showLanguagesIfDontMatch={true}
               />
             ),
@@ -457,6 +491,7 @@ export function StoryMenu({
               l={l}
               r={r}
               onStorySelected={onStorySelected}
+              onToggleFavorite={toggleFavorite}
               showLanguagesIfDontMatch={false}
             />
           ),

@@ -1,7 +1,14 @@
 import { createContext, Fragment, useCallback, useContext, useEffect, useState } from "react";
+import { FaStar, FaRegStar } from "react-icons/fa6";
 import { Chapter, Paragraph, Sentence } from "./story";
-import { apiUrl, useStoryQuery, NotFoundError } from "./queries";
+import {
+  apiUrl,
+  useSetFavoriteStoryMutation,
+  useStoryQuery,
+  NotFoundError,
+} from "./queries";
 import { lstr } from "./localization";
+import { useLoggedIn } from "./firebase";
 import { WordExplanationPopup } from "./Explanation";
 import {
   GENDER_CLASS,
@@ -405,6 +412,8 @@ function StoryView({
   colorNounGenders: boolean;
 }) {
   const query = useStoryQuery(storyId, l, r);
+  const loggedIn = useLoggedIn();
+  const favoriteMutation = useSetFavoriteStoryMutation();
 
   if (query.isPending) {
     return (
@@ -450,7 +459,37 @@ function StoryView({
     <PopupProvider>
       <div>
         <Image storyId={storyId} imageId={rStory.imageId} />
-        <h1 className="text-2xl font-bold text-center text-main-text">{rStory.title}</h1>
+        <h1 className="flex items-center justify-center gap-2 text-2xl font-bold text-center text-main-text">
+          {rStory.title}
+          {loggedIn && (
+            <button
+              type="button"
+              aria-label={
+                query.data.favorite
+                  ? lstr(l).unfavorite_story_button_label
+                  : lstr(l).favorite_story_button_label
+              }
+              className={`translate-y-[2px] transition-colors ${
+                query.data.favorite
+                  ? "text-amber-400 hover:text-amber-500"
+                  : "text-muted-text hover:text-amber-400"
+              }`}
+              onClick={() => {
+                if (favoriteMutation.isPending) return;
+                favoriteMutation.mutate({
+                  storyId,
+                  favorite: !query.data.favorite,
+                });
+              }}
+            >
+              {query.data.favorite ? (
+                <FaStar size={18} />
+              ) : (
+                <FaRegStar size={18} />
+              )}
+            </button>
+          )}
+        </h1>
         {effectiveShowTranslation && (
           <h1 className="text-xl font-medium text-secondary-text text-center mt-1">
             {lStory.title}
