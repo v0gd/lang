@@ -91,7 +91,7 @@ func Store(ctx context.Context, s story.StoryMultilingual, params InputParameter
 func query(level string, topics []string, moods []string) string {
 	return fmt.Sprintf(`You should write a story in English for %s language proficiency level.
 
-The story should be roughly 2 pages long.
+The story should be roughly 400 words long.
 
 The story should be about the following topics: %s.
 
@@ -263,9 +263,22 @@ func generateStoryInEnglish(ctx context.Context, level string, topics []string, 
 		fmt.Sprintf("Generating a story %s: %s - %s", level, strings.Join(topics, ","), strings.Join(moods, ",")))
 	defer trace.Stop()
 
-	sText, err := llm.Invoke(ctx, "You are a professional writer for language learners.", query(level, topics, moods), llm.ClaudeSonnet)
+	role := "You are a professional writer for language learners."
+	content := query(level, topics, moods)
+
+	sText, err := llm.Invoke(ctx, role, content, llm.ClaudeFable)
+	if err == nil {
+		return sText, nil
+	}
+	// Don't fall back on cancellation - the caller is gone.
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return "", ctxErr
+	}
+	slog.Error(fmt.Sprintf("story generation with ClaudeFable failed, falling back to Gpt: %v", err))
+
+	sText, err = llm.Invoke(ctx, role, content, llm.Gpt)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate story, llm error: %w", err)
+		return "", fmt.Errorf("failed to generate story with fallback model, llm error: %w", err)
 	}
 
 	return sText, nil

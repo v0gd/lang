@@ -33,7 +33,13 @@ const (
 	GptMini      Model = "GptMini"
 	ClaudeSonnet Model = "ClaudeSonnet"
 	ClaudeOpus   Model = "ClaudeOpus"
+	ClaudeFable  Model = "ClaudeFable"
 )
+
+// claudeFable5ModelId is the Claude Fable 5 API model id. The pinned
+// anthropic-sdk-go version (v1.38.0) predates the Fable 5 release and has no
+// constant for it yet, so the id is spelled out here.
+const claudeFable5ModelId anthropic.Model = "claude-fable-5"
 
 const maxTokens = 8192
 
@@ -50,6 +56,8 @@ func Invoke(ctx context.Context, role string, content string, model Model) (stri
 		return invokeClaude(ctx, role, content, anthropic.ModelClaudeSonnet4_6)
 	case ClaudeOpus:
 		return invokeClaude(ctx, role, content, anthropic.ModelClaudeOpus4_7)
+	case ClaudeFable:
+		return invokeClaude(ctx, role, content, claudeFable5ModelId)
 	default:
 		return "", fmt.Errorf("Unknown model")
 	}
@@ -170,6 +178,8 @@ func InvokeStructured(ctx context.Context, role string, content string, schema S
 		return invokeClaudeStructured(ctx, role, content, schema, anthropic.ModelClaudeSonnet4_6)
 	case ClaudeOpus:
 		return invokeClaudeStructured(ctx, role, content, schema, anthropic.ModelClaudeOpus4_7)
+	case ClaudeFable:
+		return invokeClaudeStructured(ctx, role, content, schema, claudeFable5ModelId)
 	default:
 		return "", fmt.Errorf("Unknown model")
 	}
