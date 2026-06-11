@@ -118,7 +118,7 @@ function SentenceView({
   // locales that don't support gender markers at all).
   applyGenderColors: boolean;
 }) {
-  const { activePopup, openPopup } = useContext(PopupContext);
+  const { activePopup, openPopup, closePopup } = useContext(PopupContext);
 
   const onWordClick = useCallback(
     (e: React.MouseEvent | React.KeyboardEvent, wordIdx: number) => {
@@ -130,6 +130,14 @@ function SentenceView({
         return;
       }
       e.stopPropagation();
+      // While an explanation is open, a click on any word (including another
+      // one) only dismisses it. Clicks meant to close the popup often land on
+      // a neighbouring word by accident, and opening a new explanation there
+      // is never what the user wanted.
+      if (activePopup) {
+        closePopup();
+        return;
+      }
       openPopup({
         storyId,
         l,
@@ -139,7 +147,7 @@ function SentenceView({
         wordIdx,
       });
     },
-    [storyId, l, r, lSentence.index, rSentence.index, openPopup],
+    [storyId, l, r, lSentence.index, rSentence.index, activePopup, openPopup, closePopup],
   );
 
   if (!interactive) {
@@ -185,6 +193,14 @@ function SentenceView({
           isActiveInThisSentence && activePopup?.wordIdx === currentWordIdx;
         const genderClass =
           applyGenderColors && gender ? GENDER_CLASS[gender] : "";
+        // While any popup is open a word click only dismisses it, so drop the
+        // hover highlight and pointer cursor: keeping them would promise an
+        // explanation that the click won't deliver. The explicit cursor-auto
+        // is required because Tailwind's preflight gives [role="button"]
+        // elements cursor:pointer even without the utility class.
+        const clickAffordanceClass = activePopup
+          ? "cursor-auto"
+          : "cursor-pointer hover:bg-highlight-light";
 
         return (
           <Fragment key={idx}>
@@ -192,7 +208,7 @@ function SentenceView({
             <span
               role="button"
               tabIndex={0}
-              className={`cursor-pointer hover:bg-highlight-light rounded px-[1px] transition-colors ${genderClass} ${isActive ? "bg-highlight relative" : ""}`}
+              className={`${clickAffordanceClass} rounded px-[1px] transition-colors ${genderClass} ${isActive ? "bg-highlight relative" : ""}`}
               onClick={(e) => onWordClick(e, currentWordIdx)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
