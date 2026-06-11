@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, useParams, useNavigate } from "react-router-dom";
-import { StoryMenu, StoryMenuUnauthorized } from "./StoryMenu";
+import { StoryMenu } from "./StoryMenu";
+import { HomePage } from "./HomePage";
 import { SettingsModal } from "./SettingsMenu";
 import StoryView from "./StoryView";
 import { Settings, Theme, ShowTranslationMode } from "./settings";
@@ -8,7 +9,7 @@ import { TopMenu } from "./TopMenu";
 import { GenerateStoryView } from "./GenerateView";
 import { UploadView } from "./UploadView";
 import { MyDictionaryView } from "./MyDictionaryView";
-import { useLoggedIn } from "./firebase";
+import { useLoggedIn, useLoggedInOptimistic } from "./firebase";
 import { SignInPage, SignUpPage } from "./LoginPage";
 import { useStoryQuery } from "./queries";
 import { lstr } from "./localization";
@@ -125,7 +126,10 @@ interface RouteProps {
 
 function StoryMenuComponent({ settings, setSettings }: RouteProps) {
   const navigate = useNavigate();
-  const loggedIn = useLoggedIn();
+  // Optimistic so a returning logged-in user doesn't see the signup-oriented
+  // landing page flash on a cold load while Firebase restores the session
+  // (and a logged-out visitor still gets the landing page instantly).
+  const loggedIn = useLoggedInOptimistic();
 
   const selectStory = (storyId: string) => {
     navigate(`/${storyId}`);
@@ -140,9 +144,11 @@ function StoryMenuComponent({ settings, setSettings }: RouteProps) {
           onStorySelected={selectStory}
         />
       ) : (
-        <StoryMenuUnauthorized
-          l={settings.lLocale}
-          r={settings.rLocale}
+        // Logged-out visitors get the conversion-oriented landing page
+        // instead of StoryMenuUnauthorized (kept in StoryMenu.tsx, unrouted).
+        <HomePage
+          settings={settings}
+          setSettings={setSettings}
           onStorySelected={selectStory}
         />
       )}

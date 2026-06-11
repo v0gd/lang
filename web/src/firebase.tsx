@@ -41,6 +41,56 @@ export async function isLoggedInSettled(): Promise<boolean> {
   return !!auth.currentUser;
 }
 
+// WAS_LOGGED_IN_HINT_KEY persists the last known auth state across page
+// loads. Firebase restores the session asynchronously, so on a cold load
+// auth.currentUser is null for a few hundred ms even for a logged-in user;
+// the hint lets the UI guess the right state immediately instead of flashing
+// the logged-out variant first. The module-level listener below keeps the
+// hint in sync on every auth change (login, logout, session expiry).
+const WAS_LOGGED_IN_HINT_KEY = "wasLoggedInHint";
+
+onAuthStateChanged(auth, (user) => {
+  try {
+    localStorage.setItem(WAS_LOGGED_IN_HINT_KEY, user ? "true" : "false");
+  } catch (err) {
+    // localStorage can be unavailable (e.g. blocked storage); the only cost
+    // is a brief wrong-state flash on the next load.
+    console.error("Failed to persist auth state hint", err);
+  }
+});
+
+function loadWasLoggedInHint(): boolean {
+  try {
+    return localStorage.getItem(WAS_LOGGED_IN_HINT_KEY) === "true";
+  } catch (err) {
+    console.error("Failed to read auth state hint", err);
+    return false;
+  }
+}
+
+// useLoggedInOptimistic is useLoggedIn with a better initial guess: until
+// Firebase settles, it reports the persisted last-session state instead of
+// false. Use it for layout-level decisions (which page to render) where a
+// wrong "false" causes a visible flash. Do NOT use it to gate authenticated
+// requests - the guess can be wrong; data paths must use useLoggedIn /
+// isLoggedInSettled.
+export function useLoggedInOptimistic() {
+  const [loggedIn, setLoggedIn] = useState(
+    () => isLoggedIn() || loadWasLoggedInHint(),
+  );
+
+  useEffect(() => {
+    // Fires immediately with the current state once auth has settled, which
+    // corrects an initial guess that turned out wrong.
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setLoggedIn(!!user);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  return loggedIn;
+}
+
 // It takes some time for the auth state to be loaded, returned loggedIn
 // can be stale for a short period of time.
 export function useLoggedIn() {
@@ -72,6 +122,11 @@ export function useUser() {
 
 export async function getAuthToken() {
   console.debug("Getting auth token");
+  // Wait for the persisted session to be restored: with optimistic rendering
+  // an authenticated view can mount (and fire its queries) before Firebase
+  // has settled, and reading currentUser synchronously here would throw for
+  // a user who is actually logged in.
+  await auth.authStateReady();
   const currentUser = auth.currentUser;
   if (!currentUser) {
     console.error("User is not signed in");

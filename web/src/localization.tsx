@@ -111,6 +111,27 @@ export interface LocalizationStrings {
   login_error_invalid_email: string;
   login_error_too_many_requests: string;
   login_error_generic: string;
+  home_hero_title_pre: string;
+  home_hero_title_highlight: string;
+  home_hero_subtitle: string;
+  home_how_read_title: string;
+  home_how_read_description: string;
+  home_how_tap_title: string;
+  home_how_tap_description: string;
+  home_how_save_title: string;
+  home_how_save_description: string;
+  home_stories_heading: string;
+  home_create_heading: string;
+  home_create_subtitle: string;
+  home_create_generate_title: string;
+  home_create_generate_description: string;
+  home_create_scan_title: string;
+  home_create_scan_description: string;
+  home_create_upload_title: string;
+  home_create_upload_description: string;
+  home_cta_title: string;
+  home_cta_subtitle: string;
+  home_cta_button: string;
   levels: Record<string, string>;
   moods: Record<string, string>;
   topics: Record<string, string>;
@@ -244,6 +265,36 @@ const strings = new Map<string, LocalizationStrings>([
       login_error_too_many_requests:
         "Too many attempts — please wait a moment and try again",
       login_error_generic: "Sign-in failed — please try again",
+      home_hero_title_pre: "Learn a language by",
+      home_hero_title_highlight: "reading stories.",
+      home_hero_subtitle:
+        "Short parallel stories at your level, with translations and instant word explanations. Start reading right away — no account needed.",
+      home_how_read_title: "Read at your level",
+      home_how_read_description:
+        "Every story comes with a translation right beneath the original.",
+      home_how_tap_title: "Tap any word",
+      home_how_tap_description:
+        "Get an instant explanation of any word, right in context.",
+      home_how_save_title: "Grow your dictionary",
+      home_how_save_description:
+        "Save the words you want to remember and review them anytime.",
+      home_stories_heading: "Start reading — it's free",
+      home_create_heading: "Make it personal",
+      home_create_subtitle:
+        "With a free account you can turn anything into a story:",
+      home_create_generate_title: "Generate a story",
+      home_create_generate_description:
+        "Pick a level, mood and topic — get a brand-new story in seconds.",
+      home_create_scan_title: "Scan a book page",
+      home_create_scan_description:
+        "Photograph a page and read it with tap-to-explain.",
+      home_create_upload_title: "Upload any text",
+      home_create_upload_description:
+        "Paste a letter, article or book excerpt and turn it into a parallel reader.",
+      home_cta_title: "Ready to dive in?",
+      home_cta_subtitle:
+        "Create a free account to generate stories, scan pages and save words.",
+      home_cta_button: "Sign up — it's free",
       levels: {
         A1: "Beginner",
         B1: "Intermediate",
@@ -411,6 +462,36 @@ const strings = new Map<string, LocalizationStrings>([
       login_error_too_many_requests:
         "Zu viele Versuche — bitte kurz warten und erneut versuchen",
       login_error_generic: "Anmeldung fehlgeschlagen — bitte erneut versuchen",
+      home_hero_title_pre: "Lerne eine Sprache durch",
+      home_hero_title_highlight: "Geschichten.",
+      home_hero_subtitle:
+        "Kurze parallele Geschichten auf deinem Niveau, mit Übersetzung und sofortigen Worterklärungen. Leg gleich los — ganz ohne Konto.",
+      home_how_read_title: "Lies auf deinem Niveau",
+      home_how_read_description:
+        "Jede Geschichte kommt mit einer Übersetzung direkt unter dem Original.",
+      home_how_tap_title: "Tippe auf ein Wort",
+      home_how_tap_description:
+        "Erhalte sofort eine Erklärung — direkt im Kontext.",
+      home_how_save_title: "Bau dein Wörterbuch auf",
+      home_how_save_description:
+        "Speichere Wörter, die du dir merken willst, und wiederhole sie jederzeit.",
+      home_stories_heading: "Gleich loslesen — kostenlos",
+      home_create_heading: "Mach es persönlich",
+      home_create_subtitle:
+        "Mit einem kostenlosen Konto machst du aus allem eine Geschichte:",
+      home_create_generate_title: "Geschichte generieren",
+      home_create_generate_description:
+        "Wähle Niveau, Stimmung und Thema — und erhalte in Sekunden eine neue Geschichte.",
+      home_create_scan_title: "Buchseite scannen",
+      home_create_scan_description:
+        "Fotografiere eine Seite und lies sie mit Tipp-Erklärungen.",
+      home_create_upload_title: "Eigenen Text hochladen",
+      home_create_upload_description:
+        "Füge einen Brief, Artikel oder Buchauszug ein und mach daraus eine parallele Lektüre.",
+      home_cta_title: "Bereit loszulegen?",
+      home_cta_subtitle:
+        "Erstelle ein kostenloses Konto, um Geschichten zu generieren, Seiten zu scannen und Wörter zu speichern.",
+      home_cta_button: "Kostenlos registrieren",
       levels: {
         A1: "Anfänger",
         B1: "Mittelstufe",
@@ -574,6 +655,36 @@ const strings = new Map<string, LocalizationStrings>([
       login_error_too_many_requests:
         "Слишком много попыток — подождите немного и попробуйте снова",
       login_error_generic: "Не удалось войти — попробуйте ещё раз",
+      home_hero_title_pre: "Учите язык, читая",
+      home_hero_title_highlight: "истории.",
+      home_hero_subtitle:
+        "Короткие параллельные истории вашего уровня — с переводом и мгновенными объяснениями слов. Начните читать прямо сейчас, без регистрации.",
+      home_how_read_title: "Читайте на своём уровне",
+      home_how_read_description:
+        "К каждой истории — перевод прямо под оригиналом.",
+      home_how_tap_title: "Нажмите на любое слово",
+      home_how_tap_description:
+        "Мгновенное объяснение слова прямо в контексте.",
+      home_how_save_title: "Собирайте свой словарь",
+      home_how_save_description:
+        "Сохраняйте слова, которые хотите запомнить, и повторяйте их в любой момент.",
+      home_stories_heading: "Начните читать — это бесплатно",
+      home_create_heading: "Сделайте чтение личным",
+      home_create_subtitle:
+        "С бесплатным аккаунтом любая тема или текст превращается в историю:",
+      home_create_generate_title: "Сгенерируйте историю",
+      home_create_generate_description:
+        "Выберите уровень, настроение и тему — новая история будет готова за секунды.",
+      home_create_scan_title: "Сканируйте страницу книги",
+      home_create_scan_description:
+        "Сфотографируйте страницу и читайте её с объяснениями по нажатию.",
+      home_create_upload_title: "Загрузите свой текст",
+      home_create_upload_description:
+        "Вставьте письмо, статью или отрывок книги и превратите его в параллельное чтение.",
+      home_cta_title: "Готовы начать?",
+      home_cta_subtitle:
+        "Создайте бесплатный аккаунт, чтобы генерировать истории, сканировать страницы и сохранять слова.",
+      home_cta_button: "Зарегистрироваться бесплатно",
       levels: {
         A1: "Начинающий",
         B1: "Средний",
