@@ -91,7 +91,7 @@ func Store(ctx context.Context, s story.StoryMultilingual, params InputParameter
 func query(level string, topics []string, moods []string) string {
 	return fmt.Sprintf(`You should write a story in English for %s language proficiency level.
 
-The story should be roughly 400 words long.
+The story should be roughly 300 words long.
 
 The story should be about the following topics: %s.
 
