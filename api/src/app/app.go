@@ -408,8 +408,10 @@ func convertStoryToDict(st story.StoryMultilingual, l, r string) map[string]any 
 }
 
 // markFavoritesAndSort fills in the per-user Favorite flag on the descriptors
-// and moves favorites to the top. The sort is stable so the relative order of
-// the rest of the list is preserved.
+// and moves favorites to the top. The sort is stable, so the caller's order
+// is preserved within both blocks - generated stories arrive newest-first
+// from the DB query and curated stories in their curated order, and that is
+// also the order shown inside the favorites block.
 func markFavoritesAndSort(descriptors []story.StoryDescriptor, favoriteIds map[story.Id]bool) {
 	for i := range descriptors {
 		descriptors[i].Favorite = favoriteIds[descriptors[i].Id]

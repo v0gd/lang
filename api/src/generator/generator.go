@@ -40,9 +40,12 @@ func Setup() {
 	if err != nil {
 		panic(err)
 	}
+	// Newest first; the favorite sort in the listing handler is stable, so
+	// this order is preserved both inside and outside the favorites block.
 	loadListStmt, err = db.Db.Prepare(
 		"SELECT id, language_level, locales, titles FROM story " +
-			"WHERE author_id = ? AND deleted = 0 AND FIND_IN_SET(?, locales);")
+			"WHERE author_id = ? AND deleted = 0 AND FIND_IN_SET(?, locales) " +
+			"ORDER BY created DESC;")
 	if err != nil {
 		panic(err)
 	}
