@@ -483,6 +483,32 @@ export function useRemoveWordMutation() {
   });
 }
 
+// fetchSentenceAudioUrl fetches the TTS audio of one sentence and returns an
+// object URL for playback. A plain <audio src> can't be used because
+// generated stories require the Authorization header, which media elements
+// cannot send - so we fetch the bytes ourselves. The caller owns the returned
+// URL and must revoke it with URL.revokeObjectURL when done.
+export async function fetchSentenceAudioUrl(
+  storyId: string,
+  locale: string,
+  sentenceIdx: number,
+): Promise<string> {
+  const url = apiUrl("/audio");
+  url.searchParams.append("story_id", storyId);
+  url.searchParams.append("locale", locale);
+  url.searchParams.append("sentence_idx", sentenceIdx.toString());
+
+  const params = await fetchParamsWithOptionalAuth("GET");
+  const res = await fetch(url, params);
+  if (!res.ok) {
+    console.error("Unexpected result for", url);
+    console.error(res);
+    throw new Error("Unexpected result for audio fetch");
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 // useProgressLinesQuery fetches the playful status lines rotated in the
 // story-generation progress overlay. Unauthenticated; `enabled` is meant to
 // be wired to the generate mutation's isPending so the request only fires

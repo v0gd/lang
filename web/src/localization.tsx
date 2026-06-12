@@ -9,6 +9,10 @@ export interface LocalizationStrings {
   story_alignment_error: string;
   loading_explain: string;
   loading_explain_error: string;
+  listen_button: string;
+  listen_stop: string;
+  listen_loading: string;
+  listen_error: string;
   save_word_button: string;
   saving_word: string;
   word_saved: string;
@@ -154,6 +158,10 @@ const strings = new Map<string, LocalizationStrings>([
         "This story's translation doesn't line up — try regenerating it",
       loading_explain: "Loading explanation...",
       loading_explain_error: "Error loading explanation",
+      listen_button: "Listen",
+      listen_stop: "Stop",
+      listen_loading: "Loading...",
+      listen_error: "Couldn't play the audio — try again",
       save_word_button: "Save to my dictionary",
       saving_word: "Saving...",
       word_saved: "Saved",
@@ -348,6 +356,10 @@ const strings = new Map<string, LocalizationStrings>([
         "Die Übersetzung dieser Geschichte passt nicht zusammen — bitte neu generieren",
       loading_explain: "Lade Erklärung...",
       loading_explain_error: "Fehler beim Laden der Erklärung",
+      listen_button: "Anhören",
+      listen_stop: "Stopp",
+      listen_loading: "Wird geladen...",
+      listen_error: "Audio konnte nicht abgespielt werden — bitte erneut versuchen",
       save_word_button: "In mein Wörterbuch speichern",
       saving_word: "Wird gespeichert...",
       word_saved: "Gespeichert",
@@ -546,6 +558,10 @@ const strings = new Map<string, LocalizationStrings>([
         "Перевод этой истории не совпадает с оригиналом — попробуйте сгенерировать её заново",
       loading_explain: "Загрузка объяснения...",
       loading_explain_error: "Ошибка загрузки объяснения",
+      listen_button: "Слушать",
+      listen_stop: "Стоп",
+      listen_loading: "Загрузка...",
+      listen_error: "Не удалось воспроизвести аудио — попробуйте ещё раз",
       save_word_button: "Сохранить в мой словарь",
       saving_word: "Сохранение...",
       word_saved: "Сохранено",

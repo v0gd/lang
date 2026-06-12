@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { FaVolumeHigh, FaStop } from "react-icons/fa6";
 import {
   SAVE_WORD_LIMIT_ERROR,
+  fetchSentenceAudioUrl,
   useRemoveWordMutation,
   useSaveWordMutation,
   useWordExplainQuery,
 } from "./queries";
 import { useLoggedIn } from "./firebase";
 import { lstr } from "./localization";
+
+// Height the popup is assumed to reach once the explanation has loaded. The
+// above/below placement is decided against this estimate instead of the live
+// height: the popup is small while the explanation is loading, and deciding
+// on the live height would flip the popup to the other side of the word the
+// moment content arrives - moving the Listen button right before a click.
+const ESTIMATED_LOADED_POPUP_HEIGHT_PX = 180;
 
 export function WordExplanationPopup({
   storyId,
@@ -46,7 +55,15 @@ export function WordExplanationPopup({
 
     const gap = 5;
     const spaceBelow = window.innerHeight - parentRect.bottom;
-    setAbove(spaceBelow < popupHeight + gap && parentRect.top > popupHeight + gap);
+    // max() so a popup that turned out even taller than the estimate can
+    // still flip above as a last resort instead of clipping off-screen.
+    const effectiveHeight = Math.max(
+      popupHeight,
+      ESTIMATED_LOADED_POPUP_HEIGHT_PX,
+    );
+    setAbove(
+      spaceBelow < effectiveHeight + gap && parentRect.top > effectiveHeight + gap,
+    );
 
     const margin = 8;
     const nudge = 16;
@@ -73,7 +90,7 @@ export function WordExplanationPopup({
   return (
     <div
       ref={popupRef}
-      className="absolute -left-4 z-50 bg-surface rounded-xl shadow-xl border border-border px-5 py-4 select-text cursor-text"
+      className="absolute -left-4 z-50 flex flex-col bg-surface rounded-xl shadow-xl border border-border px-5 py-4 select-text cursor-text"
       style={{
         ...(above
           ? { bottom: "100%", marginBottom: 5 }
@@ -84,6 +101,17 @@ export function WordExplanationPopup({
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
+      {/* The Listen row is pinned to the popup's anchored edge: top when the
+          popup opens below the word (top-anchored, grows downward), bottom
+          when it opens above (bottom-anchored, grows upward). That way the
+          button keeps its position on the page when the loading row is
+          replaced by the explanation text. The edge is switched via CSS
+          order, NOT by rendering the row in two conditional slots: the row
+          must keep its React identity across an above/below flip, or the
+          remount would stop in-progress audio playback. */}
+      <div className={above ? "order-last mt-3" : "mb-3"}>
+        <ListenSentenceButton l={l} storyId={storyId} r={r} rSentenceIdx={rSentenceIdx} />
+      </div>
       {query.isPending && (
         <div className="flex items-center gap-2 text-secondary-text">
           <svg
@@ -122,6 +150,107 @@ export function WordExplanationPopup({
           dictionaryEntryId={query.data.dictionaryEntryId}
           alreadySaved={query.data.alreadySaved}
         />
+      )}
+    </div>
+  );
+}
+
+// ListenSentenceButton plays the TTS audio of the whole sentence the clicked
+// word belongs to. The audio bytes are fetched once per popup and cached as
+// an object URL; clicking while playing stops playback. Unmounting (closing
+// the popup) stops the audio and releases the object URL.
+function ListenSentenceButton({
+  l,
+  storyId,
+  r,
+  rSentenceIdx,
+}: {
+  l: string;
+  storyId: string;
+  r: string;
+  rSentenceIdx: number;
+}) {
+  type PlayState = "idle" | "loading" | "playing" | "error";
+  const [playState, setPlayState] = useState<PlayState>("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+  const unmountedRef = useRef(false);
+
+  useEffect(() => {
+    // Reset on every (re-)mount: React StrictMode runs mount -> cleanup ->
+    // mount in development, and a ref left true by the simulated unmount
+    // would make every fetch result look like it arrived after close.
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      audioRef.current?.pause();
+      if (objectUrlRef.current) {
+        URL.revokeObjectURL(objectUrlRef.current);
+        objectUrlRef.current = null;
+      }
+    };
+  }, []);
+
+  const handleClick = async () => {
+    if (playState === "loading") return;
+    if (playState === "playing") {
+      audioRef.current?.pause();
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+      }
+      setPlayState("idle");
+      return;
+    }
+    try {
+      if (!objectUrlRef.current) {
+        setPlayState("loading");
+        const objectUrl = await fetchSentenceAudioUrl(storyId, r, rSentenceIdx);
+        if (unmountedRef.current) {
+          // The popup closed while the audio was loading; don't start
+          // playback from beyond the grave.
+          URL.revokeObjectURL(objectUrl);
+          return;
+        }
+        objectUrlRef.current = objectUrl;
+        const audio = new Audio(objectUrl);
+        audio.onended = () => {
+          if (!unmountedRef.current) setPlayState("idle");
+        };
+        audioRef.current = audio;
+      }
+      await audioRef.current!.play();
+      setPlayState("playing");
+    } catch (err) {
+      console.error("Failed to play sentence audio", err);
+      if (!unmountedRef.current) setPlayState("error");
+    }
+  };
+
+  const strings = lstr(l);
+  const label = (() => {
+    switch (playState) {
+      case "loading":
+        return strings.listen_loading;
+      case "playing":
+        return strings.listen_stop;
+      default:
+        return strings.listen_button;
+    }
+  })();
+
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        disabled={playState === "loading"}
+        onClick={handleClick}
+        className="flex items-center gap-1.5 text-sm font-medium text-primary border border-border rounded-lg px-3 py-1.5 bg-surface hover:bg-cream-dark transition-colors disabled:opacity-50"
+      >
+        {playState === "playing" ? <FaStop size={12} /> : <FaVolumeHigh size={12} />}
+        {label}
+      </button>
+      {playState === "error" && (
+        <span className="text-sm text-red-600">{strings.listen_error}</span>
       )}
     </div>
   );
