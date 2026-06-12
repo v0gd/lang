@@ -121,6 +121,11 @@ input[type="checkbox"]:focus-visible {
   0%, 100% { opacity: 0.2; }
   50% { opacity: 1; }
 }
+/* Fade-in for each new rotating status line in the progress overlay. */
+@keyframes progress-line {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
 
 .animate-progress-orbit {
   animation: progress-orbit 3.5s linear infinite;
@@ -144,6 +149,9 @@ input[type="checkbox"]:focus-visible {
   animation: progress-dot 1.2s ease-in-out infinite;
   animation-delay: 0.4s;
 }
+.animate-progress-line {
+  animation: progress-line 0.5s ease-out;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .animate-progress-orbit,
@@ -151,7 +159,8 @@ input[type="checkbox"]:focus-visible {
   .animate-progress-halo,
   .animate-progress-dot-1,
   .animate-progress-dot-2,
-  .animate-progress-dot-3 {
+  .animate-progress-dot-3,
+  .animate-progress-line {
     animation: none;
   }
 }

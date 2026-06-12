@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CancelledError, useGenerateStoryMutation } from "./queries";
+import {
+  CancelledError,
+  useGenerateStoryMutation,
+  useProgressLinesQuery,
+} from "./queries";
 import { useLoggedIn } from "./firebase";
 import { lstr } from "./localization";
 import { ProgressOverlay } from "./ProgressOverlay";
@@ -127,6 +131,28 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
 
   const strings = lstr(l);
 
+  // The playful status lines for the overlay are only fetched while a story
+  // is actually being generated; the overlay shows its static message until
+  // they arrive (or if the request fails).
+  const progressLines = useProgressLinesQuery(
+    l,
+    selectedMoods,
+    generate.isPending,
+  );
+
+  // One-line echo of the order, e.g. "Your B1 story is on its way — Scary ·
+  // Cooking". Moods and topics keep their display capitalization: lowering
+  // the case would be wrong for German nouns.
+  const overlaySelectionNames = [
+    ...selectedMoods.map((mood) => strings.moods[mood]),
+    ...selectedTopics.map((topic) => strings.topics[topic]),
+  ];
+  const overlayHeadline =
+    strings.generate_overlay_headline.replace("{level}", selectedLevel) +
+    (overlaySelectionNames.length > 0
+      ? ` — ${overlaySelectionNames.join(" · ")}`
+      : "");
+
   const sectionLabel =
     "text-xs font-semibold uppercase tracking-[0.2em] leading-none text-secondary-text";
   const counterActive =
@@ -160,6 +186,8 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
           message={strings.generate_overlay_message}
           icon={<FaWandMagicSparkles />}
           onCancel={cancelGenerate}
+          headline={overlayHeadline}
+          rotatingMessages={progressLines.data}
         />
       )}
       <header>

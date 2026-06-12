@@ -26,6 +26,7 @@ import (
 	"lang/api/gender"
 	"lang/api/generator"
 	"lang/api/osutil"
+	"lang/api/progresslines"
 	"lang/api/scan"
 	"lang/api/story"
 	"lang/api/stringutil"
@@ -668,6 +669,23 @@ func filterTopicsOrMoods(s []string) []string {
 	return res
 }
 
+// getProgressLinesHandler returns random status lines for the story
+// generation progress overlay, mixing generic lines with ones specific to
+// the requested moods. Public and unauthenticated: the lines are static fun
+// content with no per-user data.
+func getProgressLinesHandler(w http.ResponseWriter, req *http.Request) error {
+	l, err := mustExtractLocaleParam(req, "l")
+	if err != nil {
+		return err
+	}
+	moods := strings.Split(req.URL.Query().Get("moods"), ",")
+	moodsFiltered := filterTopicsOrMoods(moods)
+	if len(moods) != len(moodsFiltered) {
+		return newHTTPError(http.StatusBadRequest, "Invalid 'moods' parameter")
+	}
+	return writeJSON(w, map[string]any{"lines": progresslines.Choose(l, moodsFiltered)})
+}
+
 func generateStoryHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
 	slog.Info(fmt.Sprintf("Generating story for user %s", u.FirebaseUid))
 
@@ -1035,6 +1053,7 @@ func Serve() error {
 	mux.HandleFunc("/story-list", wrap(wrapMustBeMethod("GET", getStoryListHandler)))
 	mux.HandleFunc("/story", wrap(wrapMustBeMethod("GET", getStoryHandler)))
 	mux.HandleFunc("/generate", wrap(wrapMustBeMethod("POST", wrapAuth(generateStoryHandler))))
+	mux.HandleFunc("/progress-lines", wrap(wrapMustBeMethod("GET", getProgressLinesHandler)))
 	mux.HandleFunc("/scan", wrap(wrapMustBeMethod("POST", wrapAuth(scanHandler))))
 	mux.HandleFunc("/upload", wrap(wrapMustBeMethod("POST", wrapAuth(uploadHandler))))
 	mux.HandleFunc("/generated-list", wrap(wrapMustBeMethod("GET", wrapAuth(getGeneratedStoryListHandler))))

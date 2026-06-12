@@ -483,6 +483,38 @@ export function useRemoveWordMutation() {
   });
 }
 
+// useProgressLinesQuery fetches the playful status lines rotated in the
+// story-generation progress overlay. Unauthenticated; `enabled` is meant to
+// be wired to the generate mutation's isPending so the request only fires
+// when the overlay is actually shown. The lines are static server content,
+// so a fetched set is kept for the whole session (staleTime: Infinity).
+export function useProgressLinesQuery(
+  l: string,
+  moods: string[],
+  enabled: boolean,
+) {
+  const url = apiUrl("/progress-lines");
+  url.searchParams.append("l", l);
+  url.searchParams.append("moods", moods.join(","));
+
+  return useQuery<string[]>({
+    queryKey: ["progress-lines", l, moods],
+    queryFn: async () =>
+      fetch(url).then((res) => {
+        if (res.ok) {
+          return res.json().then((obj) => obj.lines ?? []);
+        } else {
+          console.error("Unexpected result for", url);
+          console.error(res);
+          throw new Error("Unexpected result for progress-lines query");
+        }
+      }),
+    enabled,
+    staleTime: Infinity,
+    retry: 1,
+  });
+}
+
 export interface WordExplanation {
   content: string;
   // The global dictionary sense this word was resolved to, or null if the word

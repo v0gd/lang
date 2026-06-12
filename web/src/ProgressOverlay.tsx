@@ -1,5 +1,7 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { lstr } from "./localization";
+
+const ROTATE_INTERVAL_MS = 5000;
 
 // ProgressOverlay is the shared in-flight modal used by generate, scan, and
 // upload. It is intentionally not dismissable by clicking outside or pressing
@@ -23,12 +25,36 @@ export function ProgressOverlay({
   message,
   icon,
   onCancel,
+  headline,
+  rotatingMessages,
 }: {
   l: string;
   message: string;
   icon: ReactNode;
   onCancel: () => void;
+  // Optional one-line echo of what was requested ("Your B1 story is on its
+  // way — Scary · Cooking"), shown above the animation.
+  headline?: string;
+  // Optional playful status lines rotated in place of the static message.
+  // The static message is always shown first, so the overlay works the same
+  // while the lines are still loading (or failed to load).
+  rotatingMessages?: string[];
 }) {
+  const [messageIdx, setMessageIdx] = useState(0);
+  const messages = [message, ...(rotatingMessages ?? [])];
+  const haveRotation = messages.length > 1;
+
+  useEffect(() => {
+    if (!haveRotation) return;
+    const interval = setInterval(
+      () => setMessageIdx((idx) => idx + 1),
+      ROTATE_INTERVAL_MS,
+    );
+    return () => clearInterval(interval);
+  }, [haveRotation]);
+
+  const currentMessage = messages[messageIdx % messages.length];
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
@@ -37,6 +63,11 @@ export function ProgressOverlay({
       aria-live="polite"
     >
       <div className="bg-surface border border-border rounded-2xl px-8 py-7 shadow-2xl flex flex-col items-center gap-6 min-w-[280px] max-w-[90vw]">
+        {headline && (
+          <div className="text-sm text-secondary-text text-center max-w-[320px]">
+            {headline}
+          </div>
+        )}
         <div className="relative w-24 h-24 flex items-center justify-center">
           <span
             aria-hidden
@@ -57,9 +88,15 @@ export function ProgressOverlay({
           </span>
         </div>
 
-        <div className="flex items-baseline justify-center">
-          <span className="font-semibold text-main-text text-base text-center">
-            {message}
+        <div className="flex items-baseline justify-center min-h-[3rem] max-w-[320px]">
+          {/* Keyed by index so each line change remounts the span and replays
+              the fade-in animation. min-h above keeps the card from jumping
+              when lines wrap to a different number of rows. */}
+          <span
+            key={messageIdx}
+            className="font-semibold text-main-text text-base text-center animate-progress-line"
+          >
+            {currentMessage}
           </span>
           <span aria-hidden className="inline-flex ml-0.5">
             <span className="animate-progress-dot-1 font-semibold text-main-text">

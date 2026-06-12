@@ -39,6 +39,8 @@ export interface LocalizationStrings {
   close_button_caption: string;
   cancel_button: string;
   generate_overlay_message: string;
+  // Template; {level} is replaced with the CEFR code (A1/B1/C1).
+  generate_overlay_headline: string;
   scan_overlay_message: string;
   upload_overlay_message: string;
   my_stories_header: string;
@@ -184,6 +186,7 @@ const strings = new Map<string, LocalizationStrings>([
       close_button_caption: "Close",
       cancel_button: "Cancel",
       generate_overlay_message: "Crafting your story",
+      generate_overlay_headline: "Your {level} story is on its way",
       scan_overlay_message: "Reading your page",
       upload_overlay_message: "Polishing your text",
       my_stories_header: "My stories",
@@ -379,6 +382,7 @@ const strings = new Map<string, LocalizationStrings>([
       close_button_caption: "Schließen",
       cancel_button: "Abbrechen",
       generate_overlay_message: "Deine Geschichte wird gestaltet",
+      generate_overlay_headline: "Deine {level}-Geschichte ist unterwegs",
       scan_overlay_message: "Deine Seite wird gelesen",
       upload_overlay_message: "Dein Text wird aufbereitet",
       my_stories_header: "Meine Geschichten",
@@ -574,6 +578,7 @@ const strings = new Map<string, LocalizationStrings>([
       close_button_caption: "Закрыть",
       cancel_button: "Отмена",
       generate_overlay_message: "Создаём вашу историю",
+      generate_overlay_headline: "Ваша история уровня {level} уже в пути",
       scan_overlay_message: "Читаем вашу страницу",
       upload_overlay_message: "Обрабатываем ваш текст",
       my_stories_header: "Мои истории",
