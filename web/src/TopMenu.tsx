@@ -1,28 +1,37 @@
 import { Settings, ShowTranslationMode } from "./settings";
-import {
-  ShowTranslationCheckbox,
-  ShowTranslationBySentenceCheckbox,
-} from "./ShowTranslationCheckbox";
 import { useNavigate } from "react-router-dom";
 import { RiSettings3Fill } from "react-icons/ri";
+import { HiCheck } from "react-icons/hi2";
+import { supportsGenderColoring } from "./gender";
 import { auth, useUser } from "./firebase";
 import { lstr } from "./localization";
 import { User } from "firebase/auth";
 import { useEffect, useRef, useState } from "react";
 
 export function TopMenu({
-  showTranslationControls,
+  showReaderOptions,
+  translationAvailable,
   settings,
   setSettings,
   setShowSettingsMenu,
 }: {
-  showTranslationControls: boolean;
+  // True on story pages: enables the "Aa" reader-options menu.
+  showReaderOptions: boolean;
+  // True when the story has a translation in the user's spoken language, so
+  // the translation section of the reader options applies.
+  translationAvailable: boolean;
   settings: Settings;
   setSettings: (value: Settings) => void;
   setShowSettingsMenu: () => void;
 }) {
   const navigate = useNavigate();
   const user = useUser();
+
+  // No point in an empty menu: on a story without translation in a language
+  // without gender coloring there is nothing to configure (yet).
+  const readerOptionsVisible =
+    showReaderOptions &&
+    (translationAvailable || supportsGenderColoring(settings.rLocale));
 
   return (
     <div className="top-0 left-0 h-[48px] w-full flex justify-center px-4 bg-cream border-b border-border z-50">
@@ -34,33 +43,13 @@ export function TopMenu({
         >
           <span className="text-lg tracking-tight">Polypup</span>
         </button>
-        {showTranslationControls && (
+        {readerOptionsVisible && (
           <div className="flex flex-grow justify-center items-center">
-            <div className="flex flex-col gap-0.5">
-              <ShowTranslationCheckbox
-                isChecked={settings.showTranslation}
-                l={settings.lLocale}
-                setIsChecked={(value: boolean) =>
-                  setSettings({ ...settings, showTranslation: value })
-                }
-              />
-              <ShowTranslationBySentenceCheckbox
-                isChecked={
-                  settings.showTranslationMode ===
-                  ShowTranslationMode.BySentence
-                }
-                isEnabled={settings.showTranslation}
-                l={settings.lLocale}
-                setIsChecked={(value: boolean) =>
-                  setSettings({
-                    ...settings,
-                    showTranslationMode: value
-                      ? ShowTranslationMode.BySentence
-                      : ShowTranslationMode.ByParagraph,
-                  })
-                }
-              />
-            </div>
+            <ReaderOptionsMenu
+              settings={settings}
+              setSettings={setSettings}
+              translationAvailable={translationAvailable}
+            />
           </div>
         )}
         {user ? (
@@ -94,6 +83,144 @@ export function TopMenu({
           <RiSettings3Fill />
         </button>
       </div>
+    </div>
+  );
+}
+
+// TranslationMode flattens the (showTranslation, showTranslationMode) pair
+// into the single three-way choice the user actually makes. "hidden" keeps
+// the stored mode untouched so re-enabling restores the previous preference.
+type TranslationMode = "hidden" | "paragraph" | "sentence";
+
+// ReaderOptionsMenu is the "Aa" button in the header on story pages: a
+// popover with everything that affects how the story text is rendered. It
+// is sectioned so new reading options can be added without redesigning the
+// header: today a translation section (when the story has one) and the
+// noun-gender coloring toggle (when the learned language has genders).
+// The "Aa" is rendered as serif text rather than an icon - it is the
+// established reader-settings affordance and matches the app's typography.
+function ReaderOptionsMenu({
+  settings,
+  setSettings,
+  translationAvailable,
+}: {
+  settings: Settings;
+  setSettings: (value: Settings) => void;
+  translationAvailable: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const strings = lstr(settings.lLocale);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const currentMode: TranslationMode = !settings.showTranslation
+    ? "hidden"
+    : settings.showTranslationMode === ShowTranslationMode.BySentence
+      ? "sentence"
+      : "paragraph";
+
+  const selectMode = (mode: TranslationMode) => {
+    setSettings({
+      ...settings,
+      showTranslation: mode !== "hidden",
+      showTranslationMode:
+        mode === "sentence"
+          ? ShowTranslationMode.BySentence
+          : mode === "paragraph"
+            ? ShowTranslationMode.ByParagraph
+            : settings.showTranslationMode,
+    });
+    setOpen(false);
+  };
+
+  const modeOptions: { mode: TranslationMode; label: string }[] = [
+    { mode: "hidden", label: strings.translation_mode_hidden },
+    { mode: "paragraph", label: strings.translation_mode_by_paragraph },
+    { mode: "sentence", label: strings.translation_mode_by_sentence },
+  ];
+
+  const sectionLabelClass =
+    "px-4 pt-2.5 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-text";
+  const rowClass = (active: boolean) =>
+    `w-full flex items-center justify-between gap-3 text-left px-4 py-2 text-sm transition-colors hover:bg-cream-dark ${
+      active
+        ? "text-primary font-medium"
+        : "text-secondary-text hover:text-main-text"
+    }`;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-label={strings.reader_menu_label}
+        aria-expanded={open}
+        className="flex items-center justify-center h-[48px] w-[44px] text-secondary-text transition-colors hover:text-main-text"
+      >
+        <span className="font-literata font-semibold text-[19px] leading-none select-none">
+          Aa
+        </span>
+      </button>
+      {open && (
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 bg-surface border border-border rounded-lg shadow-lg min-w-[210px] z-50 pb-1">
+          {translationAvailable && (
+            <>
+              <div className={sectionLabelClass}>
+                {strings.translation_menu_title}
+              </div>
+              {modeOptions.map((option) => {
+                const selected = option.mode === currentMode;
+                return (
+                  <button
+                    key={option.mode}
+                    type="button"
+                    onClick={() => selectMode(option.mode)}
+                    className={rowClass(selected)}
+                  >
+                    {option.label}
+                    {selected && <HiCheck className="text-base" />}
+                  </button>
+                );
+              })}
+            </>
+          )}
+          {supportsGenderColoring(settings.rLocale) && (
+            <>
+              {translationAvailable && (
+                <div className="mt-1 border-t border-border" />
+              )}
+              <div className={sectionLabelClass}>
+                {strings.reader_menu_words_section}
+              </div>
+              {/* A toggle, not a mode choice: clicking flips it and keeps
+                  the menu open so the effect is visible in the text. */}
+              <button
+                type="button"
+                onClick={() =>
+                  setSettings({
+                    ...settings,
+                    colorNounGenders: !settings.colorNounGenders,
+                  })
+                }
+                className={rowClass(settings.colorNounGenders)}
+              >
+                {strings.color_noun_genders_checkbox}
+                {settings.colorNounGenders && <HiCheck className="text-base" />}
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

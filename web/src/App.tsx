@@ -85,13 +85,15 @@ function loadSettingsOrDefault(): Settings {
 function AppShell({
   settings,
   setSettings,
-  showTranslationControls = false,
+  showReaderOptions = false,
+  translationAvailable = false,
   contentClassName = "w-[100%] max-w-[650px] pt-4 px-4",
   children,
 }: {
   settings: Settings;
   setSettings: (value: Settings) => void;
-  showTranslationControls?: boolean;
+  showReaderOptions?: boolean;
+  translationAvailable?: boolean;
   contentClassName?: string;
   children: React.ReactNode;
 }) {
@@ -108,7 +110,8 @@ function AppShell({
       )}
       <div className="flex flex-col items-center w-full h-full bg-cream overflow-auto">
         <TopMenu
-          showTranslationControls={showTranslationControls}
+          showReaderOptions={showReaderOptions}
+          translationAvailable={translationAvailable}
           settings={settings}
           setSettings={setSettings}
           setShowSettingsMenu={() => setShowSettings(true)}
@@ -160,17 +163,18 @@ function StoryComponent({ settings, setSettings }: RouteProps) {
   const { storyId } = useParams();
 
   // Same query key as inside StoryView; TanStack Query dedupes the request so
-  // we get the response here for free and can hide the translation toggles
-  // when the story has no L localization.
+  // we get the response here for free and can hide the translation section of
+  // the reader options when the story has no L localization.
   const storyQuery = useStoryQuery(storyId!, settings.lLocale, settings.rLocale);
-  const showTranslationControls =
+  const translationAvailable =
     storyQuery.data?.localizations.has(settings.lLocale) ?? false;
 
   return (
     <AppShell
       settings={settings}
       setSettings={setSettings}
-      showTranslationControls={showTranslationControls}
+      showReaderOptions={true}
+      translationAvailable={translationAvailable}
       contentClassName="max-w-[650px] pt-4 px-4"
     >
       <StoryView

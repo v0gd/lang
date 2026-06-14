@@ -66,8 +66,12 @@ export interface LocalizationStrings {
   upload_error_disallowed: string;
   upload_error_no_target_text: string;
   upload_error_generic: string;
-  show_translation_checkbox: string;
-  show_translation_by_sentence_checkbox: string;
+  reader_menu_label: string;
+  reader_menu_words_section: string;
+  translation_menu_title: string;
+  translation_mode_hidden: string;
+  translation_mode_by_paragraph: string;
+  translation_mode_by_sentence: string;
   color_noun_genders_checkbox: string;
   color_noun_genders_explanation: string;
   color_noun_genders_masculine: string;
@@ -221,8 +225,12 @@ const strings = new Map<string, LocalizationStrings>([
       upload_error_no_target_text:
         "No text in your learned language was found in the passage",
       upload_error_generic: "Couldn't process the text — try again",
-      show_translation_checkbox: "Show translation",
-      show_translation_by_sentence_checkbox: "By sentence",
+      reader_menu_label: "Reading options",
+      reader_menu_words_section: "Words",
+      translation_menu_title: "Translation",
+      translation_mode_hidden: "Hidden",
+      translation_mode_by_paragraph: "By paragraph",
+      translation_mode_by_sentence: "By sentence",
       color_noun_genders_checkbox: "Color nouns by gender",
       color_noun_genders_explanation:
         "Nouns are tinted by grammatical gender so you can pick up the article over time.",
@@ -422,8 +430,12 @@ const strings = new Map<string, LocalizationStrings>([
         "In diesem Text wurde keine Lernsprache gefunden",
       upload_error_generic:
         "Text konnte nicht verarbeitet werden — bitte erneut versuchen",
-      show_translation_checkbox: "Übersetzung anzeigen",
-      show_translation_by_sentence_checkbox: "Nach Sätzen",
+      reader_menu_label: "Leseoptionen",
+      reader_menu_words_section: "Wörter",
+      translation_menu_title: "Übersetzung",
+      translation_mode_hidden: "Ausgeblendet",
+      translation_mode_by_paragraph: "Nach Absätzen",
+      translation_mode_by_sentence: "Nach Sätzen",
       color_noun_genders_checkbox: "Substantive nach Geschlecht einfärben",
       color_noun_genders_explanation:
         "Substantive werden nach grammatikalischem Geschlecht eingefärbt, damit du dir den Artikel mit der Zeit merken kannst.",
@@ -621,8 +633,12 @@ const strings = new Map<string, LocalizationStrings>([
       upload_error_no_target_text:
         "В тексте не найден фрагмент на изучаемом языке",
       upload_error_generic: "Не удалось обработать текст — попробуйте ещё раз",
-      show_translation_checkbox: "Показать перевод",
-      show_translation_by_sentence_checkbox: "По предложениям",
+      reader_menu_label: "Настройки чтения",
+      reader_menu_words_section: "Слова",
+      translation_menu_title: "Перевод",
+      translation_mode_hidden: "Скрыт",
+      translation_mode_by_paragraph: "По абзацам",
+      translation_mode_by_sentence: "По предложениям",
       color_noun_genders_checkbox: "Окрашивать существительные по роду",
       color_noun_genders_explanation:
         "Существительные подсвечиваются по грамматическому роду, чтобы со временем запомнить артикль.",
