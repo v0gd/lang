@@ -2,7 +2,12 @@ import { Settings, ShowTranslationMode } from "./settings";
 import { useNavigate } from "react-router-dom";
 import { RiSettings3Fill } from "react-icons/ri";
 import { HiCheck } from "react-icons/hi2";
-import { supportsGenderColoring } from "./gender";
+import {
+  GENDER_CLASS,
+  GENDER_EXAMPLES,
+  Gender,
+  supportsGenderColoring,
+} from "./gender";
 import { auth, useUser } from "./firebase";
 import { lstr } from "./localization";
 import { User } from "firebase/auth";
@@ -27,11 +32,11 @@ export function TopMenu({
   const navigate = useNavigate();
   const user = useUser();
 
-  // No point in an empty menu: on a story without translation in a language
-  // without gender coloring there is nothing to configure (yet).
-  const readerOptionsVisible =
-    showReaderOptions &&
-    (translationAvailable || supportsGenderColoring(settings.rLocale));
+  // The reader menu is never empty on a story page: it always shows the
+  // translation section (the mode choices, or a "no translation" note) plus
+  // any gender-coloring controls, so it is enabled whenever reader options
+  // apply at all.
+  const readerOptionsVisible = showReaderOptions;
 
   return (
     <div className="top-0 left-0 h-[48px] w-full flex justify-center px-4 bg-cream border-b border-border z-50">
@@ -95,8 +100,10 @@ type TranslationMode = "hidden" | "paragraph" | "sentence";
 // ReaderOptionsMenu is the "Aa" button in the header on story pages: a
 // popover with everything that affects how the story text is rendered. It
 // is sectioned so new reading options can be added without redesigning the
-// header: today a translation section (when the story has one) and the
-// noun-gender coloring toggle (when the learned language has genders).
+// header: today a translation section (always shown - the mode choices when
+// the story has a translation, or a "no translation" note otherwise) and the
+// noun-gender coloring toggle plus a color legend previewing the exact
+// tints the renderer uses (when the learned language has genders).
 // The "Aa" is rendered as serif text rather than an icon - it is the
 // established reader-settings affordance and matches the app's typography.
 function ReaderOptionsMenu({
@@ -111,6 +118,19 @@ function ReaderOptionsMenu({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const strings = lstr(settings.lLocale);
+
+  // Color legend shown under the gender toggle: previews the exact tint used
+  // for each gender next to a familiar example noun in the learned language.
+  // undefined for locales without examples (kept defensive: the section is
+  // already gated on supportsGenderColoring, but a supported locale could
+  // lack examples).
+  const genderExamples = GENDER_EXAMPLES[settings.rLocale];
+  const genderOrder: Gender[] = ["m", "f", "n"];
+  const genderLabel: Record<Gender, string> = {
+    m: strings.color_noun_genders_masculine,
+    f: strings.color_noun_genders_feminine,
+    n: strings.color_noun_genders_neuter,
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -172,33 +192,36 @@ function ReaderOptionsMenu({
         </span>
       </button>
       {open && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 bg-surface border border-border rounded-lg shadow-lg min-w-[210px] z-50 pb-1">
-          {translationAvailable && (
-            <>
-              <div className={sectionLabelClass}>
-                {strings.translation_menu_title}
-              </div>
-              {modeOptions.map((option) => {
-                const selected = option.mode === currentMode;
-                return (
-                  <button
-                    key={option.mode}
-                    type="button"
-                    onClick={() => selectMode(option.mode)}
-                    className={rowClass(selected)}
-                  >
-                    {option.label}
-                    {selected && <HiCheck className="text-base" />}
-                  </button>
-                );
-              })}
-            </>
+        <div className="absolute left-1/2 -translate-x-1/2 top-full mt-1 bg-surface border border-border rounded-lg shadow-lg w-max min-w-[210px] max-w-[min(280px,calc(100vw-1.5rem))] z-50 pb-1">
+          <div className={sectionLabelClass}>
+            {strings.translation_menu_title}
+          </div>
+          {translationAvailable ? (
+            modeOptions.map((option) => {
+              const selected = option.mode === currentMode;
+              return (
+                <button
+                  key={option.mode}
+                  type="button"
+                  onClick={() => selectMode(option.mode)}
+                  className={rowClass(selected)}
+                >
+                  {option.label}
+                  {selected && <HiCheck className="text-base" />}
+                </button>
+              );
+            })
+          ) : (
+            // Story has no translation in the user's language: keep the
+            // section visible with an explanatory note rather than dropping
+            // it, so the menu's shape stays predictable across stories.
+            <p className="px-4 py-2 text-sm text-secondary-text">
+              {strings.translation_unavailable}
+            </p>
           )}
           {supportsGenderColoring(settings.rLocale) && (
             <>
-              {translationAvailable && (
-                <div className="mt-1 border-t border-border" />
-              )}
+              <div className="mt-1 border-t border-border" />
               <div className={sectionLabelClass}>
                 {strings.reader_menu_words_section}
               </div>
@@ -217,6 +240,25 @@ function ReaderOptionsMenu({
                 {strings.color_noun_genders_checkbox}
                 {settings.colorNounGenders && <HiCheck className="text-base" />}
               </button>
+              {genderExamples && (
+                <div className="flex flex-wrap gap-1.5 px-4 pt-1.5 pb-2">
+                  {genderOrder.map((g) => (
+                    <div
+                      key={g}
+                      className="flex items-baseline gap-1.5 border border-border rounded-lg px-2.5 py-1 bg-cream"
+                    >
+                      <span
+                        className={`text-sm font-semibold ${GENDER_CLASS[g]}`}
+                      >
+                        {genderExamples[g]}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wide text-muted-text">
+                        {genderLabel[g]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           )}
         </div>

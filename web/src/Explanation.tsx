@@ -90,7 +90,13 @@ export function WordExplanationPopup({
   return (
     <div
       ref={popupRef}
-      className="absolute -left-4 z-50 flex flex-col bg-surface rounded-xl shadow-xl border border-border px-5 py-4 select-text cursor-text"
+      // Popup must read as clearly lifted off the page in both themes. Light:
+      // a heavy two-layer drop shadow (the white-on-cream fills are nearly
+      // identical, so the shadow does all the separating). Dark: shadows are
+      // invisible against the near-black body, so separation comes from
+      // lifting the fill itself above the surface/body tone, a bright border,
+      // and an inset top highlight (faked light-from-above elevation cue).
+      className="absolute -left-4 z-50 flex flex-col bg-surface dark:bg-[#2e2e31] rounded-xl border border-border dark:border-white/25 px-5 py-4 select-text cursor-text shadow-[0_18px_50px_-8px_rgba(0,0,0,0.38),0_6px_16px_-4px_rgba(0,0,0,0.22)] dark:shadow-[0_22px_60px_-8px_rgba(0,0,0,0.9),inset_0_1px_0_0_rgba(255,255,255,0.1)]"
       style={{
         ...(above
           ? { bottom: "100%", marginBottom: 5 }

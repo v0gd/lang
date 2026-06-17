@@ -269,7 +269,7 @@ func generateStoryInEnglish(ctx context.Context, level string, topics []string, 
 	role := "You are a professional writer for language learners."
 	content := query(level, topics, moods)
 
-	sText, err := llm.Invoke(ctx, role, content, llm.ClaudeFable)
+	sText, err := llm.Invoke(ctx, role, content, llm.Gpt)
 	if err == nil {
 		return sText, nil
 	}
@@ -277,7 +277,7 @@ func generateStoryInEnglish(ctx context.Context, level string, topics []string, 
 	if ctxErr := ctx.Err(); ctxErr != nil {
 		return "", ctxErr
 	}
-	slog.Error(fmt.Sprintf("story generation with ClaudeFable failed, falling back to Gpt: %v", err))
+	slog.Error(fmt.Sprintf("story generation failed, falling back to Gpt: %v", err))
 
 	sText, err = llm.Invoke(ctx, role, content, llm.Gpt)
 	if err != nil {

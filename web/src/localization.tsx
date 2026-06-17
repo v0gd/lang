@@ -69,11 +69,11 @@ export interface LocalizationStrings {
   reader_menu_label: string;
   reader_menu_words_section: string;
   translation_menu_title: string;
+  translation_unavailable: string;
   translation_mode_hidden: string;
   translation_mode_by_paragraph: string;
   translation_mode_by_sentence: string;
   color_noun_genders_checkbox: string;
-  color_noun_genders_explanation: string;
   color_noun_genders_masculine: string;
   color_noun_genders_feminine: string;
   color_noun_genders_neuter: string;
@@ -228,12 +228,11 @@ const strings = new Map<string, LocalizationStrings>([
       reader_menu_label: "Reading options",
       reader_menu_words_section: "Words",
       translation_menu_title: "Translation",
+      translation_unavailable: "No translation available for this story.",
       translation_mode_hidden: "Hidden",
       translation_mode_by_paragraph: "By paragraph",
       translation_mode_by_sentence: "By sentence",
       color_noun_genders_checkbox: "Color nouns by gender",
-      color_noun_genders_explanation:
-        "Nouns are tinted by grammatical gender so you can pick up the article over time.",
       color_noun_genders_masculine: "masculine",
       color_noun_genders_feminine: "feminine",
       color_noun_genders_neuter: "neuter",
@@ -433,12 +432,12 @@ const strings = new Map<string, LocalizationStrings>([
       reader_menu_label: "Leseoptionen",
       reader_menu_words_section: "Wörter",
       translation_menu_title: "Übersetzung",
+      translation_unavailable:
+        "Für diese Geschichte ist keine Übersetzung verfügbar.",
       translation_mode_hidden: "Ausgeblendet",
       translation_mode_by_paragraph: "Nach Absätzen",
       translation_mode_by_sentence: "Nach Sätzen",
       color_noun_genders_checkbox: "Substantive nach Geschlecht einfärben",
-      color_noun_genders_explanation:
-        "Substantive werden nach grammatikalischem Geschlecht eingefärbt, damit du dir den Artikel mit der Zeit merken kannst.",
       color_noun_genders_masculine: "maskulin",
       color_noun_genders_feminine: "feminin",
       color_noun_genders_neuter: "neutrum",
@@ -636,12 +635,11 @@ const strings = new Map<string, LocalizationStrings>([
       reader_menu_label: "Настройки чтения",
       reader_menu_words_section: "Слова",
       translation_menu_title: "Перевод",
+      translation_unavailable: "Для этой истории нет перевода.",
       translation_mode_hidden: "Скрыт",
       translation_mode_by_paragraph: "По абзацам",
       translation_mode_by_sentence: "По предложениям",
       color_noun_genders_checkbox: "Окрашивать существительные по роду",
-      color_noun_genders_explanation:
-        "Существительные подсвечиваются по грамматическому роду, чтобы со временем запомнить артикль.",
       color_noun_genders_masculine: "мужской",
       color_noun_genders_feminine: "женский",
       color_noun_genders_neuter: "средний",
