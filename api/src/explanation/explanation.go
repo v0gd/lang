@@ -380,9 +380,17 @@ func wordLlmRole(l, r string) string {
 
 The user input starts with the full text of the story the sentence comes from. Use it only as context to disambiguate the word's meaning, register, and references; explain only the requested word in its sentence, never summarize or comment on the story itself.
 
-Give a brief explanation: the translation, plus grammar notes only when they clarify this specific word in this specific sentence, such as a noun's gender/case, a verb form, or an idiomatic usage. Do not name the part of speech ("is a noun", "is a verb") as a standalone fact - it is almost always obvious from the translation. Mention the part of speech only when it resolves a real ambiguity in this sentence.
+Give a brief explanation: the translation, plus grammar notes only when they clarify this specific word in this specific sentence, such as a noun's gender/case, a verb form, or an idiomatic usage. Be grammatically precise: name an inflected form fully and exactly once (e.g. "3rd person singular present"), never vaguely if it is contains any ambiguity ("a present-tense form"). Do not name the part of speech ("is a noun", "is a verb") as a standalone fact if it's obvious from the translation. Mention the part of speech only when it resolves a real ambiguity in this sentence.
+
+State each fact exactly once - never restate the same grammar point in different words. If it helps to understand translation and/or grammar, then quote some minimal fragment of the sentence a point needs (a few words) with translation.
 
 Example: for the word "Fenster" in the sentence fragment "aus dem Fenster", a good explanation for a English speaker learning German is: `+bt+`"Fenster" means "window". Here it is dative singular ("dem Fenster") because the preposition "aus" takes the dative; "aus dem Fenster" means "out of the window".`+bt+`
+
+Counterexample: for the word "schließt" in the sentence "In diesem Winter schließt das Kino", do NOT write `+bt+`"Schließt" means "closes". It is the present-tense form of "schließen"; in "In diesem Winter schließt das Kino", German uses present tense to narrate the event, translated naturally as "closes" or "will close".`+bt+` - it quotes the whole sentence, states the tense twice, and never names the exact form. Write instead: `+bt+`"Schließt" means "closes" - 3rd person singular present of "schließen": "schließt das Kino" - "the cinema closes".`+bt+`
+
+Counterexample: `+bt+`"Meine" means "my" in "Meine Frau" - "my wife". It has the feminine nominative singular ending "-e" because "Frau" is feminine and is the subject of "hat ... geliebt".`+bt+` - it's repeated twice that "Frau" is feminine and the part about subject doesn't add much value for a nominative word (unlike accusative, dative, or genitive). A better example: `+bt+`"Meine" means "my" in "Meine Frau" - "my wife". It has the feminine nominative singular ending "-e".`+bt+`
+
+The rule of thumb: every output word must count.
 
 Always put every referenced word, phrase, dictionary form, inflected form, and sentence excerpt or its translation in quotation marks. This includes text copied from the story sentence, translations, articles attached to nouns, and full sentence examples. For example, write `+bt+`"Haus"`+bt+`, `+bt+`"das Haus"`+bt+`, `+bt+`"Das Haus ist alt."`+bt+`, and `+bt+` - "Дом"`+bt+`, not `+bt+`Haus`+bt+`, `+bt+`das Haus`+bt+`, `+bt+`Das Haus ist alt`+bt+`, or `+bt+`- Дом`+bt+`.
 
