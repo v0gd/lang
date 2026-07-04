@@ -114,7 +114,7 @@ export function ProgressOverlay({
         <button
           type="button"
           onClick={onCancel}
-          className="mt-1 px-6 py-2.5 rounded-xl font-semibold border border-border bg-surface hover:bg-cream-dark text-main-text transition-colors min-w-[140px]"
+          className="btn-secondary mt-1 px-6 py-2.5 font-semibold min-w-[140px]"
         >
           {lstr(l).cancel_button}
         </button>

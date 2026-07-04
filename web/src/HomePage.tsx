@@ -10,7 +10,8 @@ import {
 } from "react-icons/fa6";
 import { useStoryListQuery } from "./queries";
 import { lstr } from "./localization";
-import { StoryDescriptor } from "./story";
+import { levelBadgeClasses } from "./levelColors";
+import { StoryDescriptor, truncateStoryListTitle } from "./story";
 import { Settings } from "./settings";
 import { LanguageDropdown } from "./LanguageDropdown";
 
@@ -208,19 +209,27 @@ function StoryCard({
   r: string;
   onStorySelected: (storyId: string) => void;
 }) {
-  const primaryTitle = titleForLocale(s, r) ?? s.titles[0];
-  const secondaryTitle = titleForLocale(s, l);
+  const primaryTitle = truncateStoryListTitle(
+    titleForLocale(s, r) ?? s.titles[0],
+  );
+  const secondaryTitleForLocale = titleForLocale(s, l);
+  const secondaryTitle =
+    secondaryTitleForLocale === undefined
+      ? undefined
+      : truncateStoryListTitle(secondaryTitleForLocale);
   return (
     <button
       type="button"
       onClick={() => onStorySelected(s.id)}
       className="my-1.5 w-full hover:bg-cream-dark p-3 bg-surface border border-border rounded-xl transition-colors"
     >
-      <div className="flex items-center w-full gap-3">
-        <div className="text-center min-w-[48px] text-sm font-semibold text-primary bg-primary-light rounded-full py-1">
+      <div className="flex items-center w-full gap-2">
+        <div
+          className={`text-center w-12 shrink-0 text-xs font-semibold rounded-full py-1 ${levelBadgeClasses(s.level)}`}
+        >
           {s.level}
         </div>
-        <div className="flex flex-col flex-grow text-left">
+        <div className="flex flex-col flex-grow min-w-0 text-left">
           <div className="font-semibold text-main-text">{primaryTitle}</div>
           {secondaryTitle && (
             <div className="text-secondary-text text-sm">{secondaryTitle}</div>

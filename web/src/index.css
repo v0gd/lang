@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /* Shared secondary (neutral) button for popups - e.g. the Cancel action in
+     the delete-story dialog and the cancel button in the progress overlay.
+     Centralized so every popup renders the same surface/border/text treatment
+     instead of re-deriving it inline. The explicit text color is essential: a
+     bare <button> inside a <dialog> inherits the UA `CanvasText` color (black)
+     regardless of the app's dark theme, so without it the label is lost
+     against the dark surface. Call sites add their own layout utilities
+     (width, padding, font weight). */
+  .btn-secondary {
+    @apply bg-surface text-main-text border border-border rounded-xl transition-colors hover:bg-cream-dark;
+  }
+}
+
 :root {
   --color-cream: #faf7f0;
   --color-cream-dark: #f0ebe0;
@@ -15,6 +29,19 @@
   --color-border: #e5e0d5;
   --color-highlight: #d4a853;
   --color-highlight-light: #faf0d8;
+  /* CEFR level badge colors: a green (A1, easiest) -> red (C1, hardest)
+     difficulty ramp. Exposed as level-* Tailwind colors; the level-string ->
+     class mapping lives in levelColors.tsx. */
+  --color-level-a1: #3f7d3c;
+  --color-level-a1-bg: #e6f2e0;
+  --color-level-a2: #6c8a2e;
+  --color-level-a2-bg: #eef2d8;
+  --color-level-b1: #9a7a24;
+  --color-level-b1-bg: #f7efd4;
+  --color-level-b2: #b35f26;
+  --color-level-b2-bg: #f9e8d8;
+  --color-level-c1: #b8433a;
+  --color-level-c1-bg: #f9e2dd;
 }
 
 .dark {
@@ -30,6 +57,16 @@
   --color-border: #3a3a3c;
   --color-highlight: #d4a853;
   --color-highlight-light: #3a3020;
+  --color-level-a1: #7cbf6e;
+  --color-level-a1-bg: #243620;
+  --color-level-a2: #a8bf62;
+  --color-level-a2-bg: #2e351d;
+  --color-level-b1: #d4a853;
+  --color-level-b1-bg: #3a3020;
+  --color-level-b2: #d9905a;
+  --color-level-b2-bg: #3a2a1c;
+  --color-level-c1: #d97066;
+  --color-level-c1-bg: #3d2320;
 }
 
 html {

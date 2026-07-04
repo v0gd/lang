@@ -18,8 +18,8 @@ import {
   FaStar,
   FaRegStar,
 } from "react-icons/fa6";
-import { StoryDescriptor } from "./story";
-import getFlagEmoji from "./LanguageFlag";
+import { StoryDescriptor, truncateStoryListTitle } from "./story";
+import { levelBadgeClasses } from "./levelColors";
 import { Modal } from "./Modal";
 import { useLoggedIn } from "./firebase";
 import { ProgressOverlay } from "./ProgressOverlay";
@@ -51,7 +51,7 @@ function Button({
       <button
         type="button"
         onClick={onPressed}
-        className="my-1.5 w-full hover:bg-cream-dark p-3 bg-surface border border-border rounded-xl transition-colors"
+        className="my-1.5 w-full hover:bg-cream-dark py-3 px-2 bg-surface border border-border rounded-xl transition-colors"
       >
         {children}
       </button>
@@ -157,7 +157,6 @@ function StoryButton({
   s,
   l,
   r,
-  showLanguagesIfDontMatch: showLanguageFlagsIfDontMatch,
   onStorySelected,
   onDelete,
   onToggleFavorite,
@@ -165,7 +164,6 @@ function StoryButton({
   s: StoryDescriptor;
   l: string;
   r: string;
-  showLanguagesIfDontMatch: boolean;
   onStorySelected: (storyId: string) => void;
   onDelete?: (storyId: string) => void;
   // When set, a star toggle is shown; called with the new desired state.
@@ -174,29 +172,17 @@ function StoryButton({
   // The story is shown as a primary title in the learned language (r) with an
   // optional mother-tongue (l) subtitle. Stories generated without a mother
   // tongue have only the r title.
-  const primaryTitle = titleForLocale(s, r) ?? s.titles[0];
-  const secondaryTitle = titleForLocale(s, l);
-  const languagesMatch =
-    s.locales.includes(r) &&
-    (secondaryTitle !== undefined || s.locales.length === 1);
-  const shouldShowFlags = !languagesMatch && showLanguageFlagsIfDontMatch;
+  const primaryTitle = truncateStoryListTitle(
+    titleForLocale(s, r) ?? s.titles[0],
+  );
+  const secondaryTitleForLocale = titleForLocale(s, l);
+  const secondaryTitle =
+    secondaryTitleForLocale === undefined
+      ? undefined
+      : truncateStoryListTitle(secondaryTitleForLocale);
   return (
     <Button onPressed={() => onStorySelected(s.id)}>
-      <div className="flex items-center w-full gap-3">
-        <div className="text-center min-w-[48px] text-sm font-semibold text-primary bg-primary-light rounded-full py-1">
-          {s.level}
-        </div>
-        <div className="flex flex-col flex-grow text-left">
-          <div className="font-semibold text-main-text">{primaryTitle}</div>
-          {secondaryTitle && (
-            <div className="text-secondary-text text-sm">{secondaryTitle}</div>
-          )}
-        </div>
-        {shouldShowFlags && (
-          <div className="flex items-center min-w-[40px] text-center">
-            {s.locales.map((loc) => getFlagEmoji(loc)).join("")}
-          </div>
-        )}
+      <div className="flex items-center w-full gap-2">
         {onToggleFavorite && (
           <button
             type="button"
@@ -205,7 +191,7 @@ function StoryButton({
                 ? lstr(l).unfavorite_story_button_label
                 : lstr(l).favorite_story_button_label
             }
-            className={`flex items-center justify-center min-w-[40px] transition-colors ${
+            className={`flex items-center justify-center w-8 shrink-0 self-stretch transition-colors ${
               s.favorite
                 ? "text-amber-400 hover:text-amber-500"
                 : "text-muted-text hover:text-amber-400"
@@ -218,11 +204,22 @@ function StoryButton({
             {s.favorite ? <FaStar size={14} /> : <FaRegStar size={14} />}
           </button>
         )}
+        <div
+          className={`text-center w-12 shrink-0 text-xs font-semibold rounded-full py-1 ${levelBadgeClasses(s.level)}`}
+        >
+          {s.level}
+        </div>
+        <div className="flex flex-col flex-grow min-w-0 text-left">
+          <div className="font-semibold text-main-text">{primaryTitle}</div>
+          {secondaryTitle && (
+            <div className="text-secondary-text text-sm">{secondaryTitle}</div>
+          )}
+        </div>
         {onDelete && (
           <button
             type="button"
             aria-label={lstr(l).delete_story_button_label}
-            className="flex items-center justify-center min-w-[40px] text-muted-text hover:text-red-500 transition-colors"
+            className="flex items-center justify-center w-8 shrink-0 self-stretch text-muted-text hover:text-red-500 transition-colors"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(s.id);
@@ -287,7 +284,6 @@ export function StoryMenuUnauthorized({
               l={l}
               r={r}
               onStorySelected={onStorySelected}
-              showLanguagesIfDontMatch={false}
             />
           ),
       )}
@@ -399,7 +395,7 @@ export function StoryMenu({
             </p>
             <div className="flex gap-3 mt-2 w-full">
               <button
-                className="flex-1 py-2.5 rounded-xl font-semibold border border-border bg-surface hover:bg-cream-dark transition-colors"
+                className="btn-secondary flex-1 py-2.5 font-semibold"
                 onClick={() => setConfirmDeleteId(null)}
               >
                 {lstr(l).cancel_button}
@@ -466,7 +462,6 @@ export function StoryMenu({
                 onStorySelected={onStorySelected}
                 onDelete={setConfirmDeleteId}
                 onToggleFavorite={toggleFavorite}
-                showLanguagesIfDontMatch={true}
               />
             ),
         )}
@@ -492,7 +487,6 @@ export function StoryMenu({
               r={r}
               onStorySelected={onStorySelected}
               onToggleFavorite={toggleFavorite}
-              showLanguagesIfDontMatch={false}
             />
           ),
       )}

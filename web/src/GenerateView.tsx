@@ -7,6 +7,7 @@ import {
 } from "./queries";
 import { useLoggedIn } from "./firebase";
 import { lstr } from "./localization";
+import { levelBadgeClasses } from "./levelColors";
 import { ProgressOverlay } from "./ProgressOverlay";
 import { FaWandMagicSparkles } from "react-icons/fa6";
 
@@ -224,8 +225,12 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
                 >
                   {strings.levels[level]}
                 </div>
-                <div className="text-sm text-secondary-text mt-1">
-                  {levelCefr[level]}
+                <div className="mt-2 flex justify-center">
+                  <span
+                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-semibold ${levelBadgeClasses(level)}`}
+                  >
+                    {levelCefr[level]}
+                  </span>
                 </div>
               </button>
             );
