@@ -25,6 +25,12 @@ func NewTrace(name string) *Trace {
 	}
 }
 
+// Log emits an intermediate message tied to this trace's id, so per-request
+// details (e.g. LLM token usage) can be correlated with the start/stop lines.
+func (t *Trace) Log(message string) {
+	slog.Info(fmt.Sprintf("%s: %s [traceId=%d]", t.name, message, t.traceId))
+}
+
 func (t *Trace) Stop() {
 	duration := time.Since(t.startTime)
 	slog.Info(

@@ -258,9 +258,17 @@ func loadSentence(eId SentenceExplanationId) (SentenceExplanation, error) {
 func generateSentence(
 	ctx context.Context, eId SentenceExplanationId, maybeLSentence, rSentence string,
 ) (SentenceExplanation, error) {
+	// CEFR level the explanation is tuned for; fixed because explanations are
+	// stored in the db per sentence, not per user level.
+	const level = "C1"
+	// The role prompt is the shared static prefix across all sentences of a
+	// language pair, so the cache key groups requests by (l, r, level).
 	response, err := llm.Invoke(
 		ctx,
-		sentenceLlmRole(eId.L, eId.R, "C1"), sentenceLlmQueryContent(eId.L, maybeLSentence, eId.R, rSentence), llm.Gpt)
+		sentenceLlmRole(eId.L, eId.R, level),
+		sentenceLlmQueryContent(eId.L, maybeLSentence, eId.R, rSentence),
+		llm.Gpt,
+		fmt.Sprintf("sentence-explanation-%s-%s-%s", eId.L, eId.R, level))
 	if err != nil {
 		return SentenceExplanation{}, err
 	}
@@ -361,10 +369,16 @@ func ExtractWord(sentenceText string, wordIdx int) (string, error) {
 	return word, nil
 }
 
+// wordLlmRole is static for a given (l, r) pair. Together with the story text
+// at the top of wordLlmQueryContent it forms the stable prompt prefix that
+// lets OpenAI's prompt cache apply across word clicks within the same story -
+// don't interpolate any per-word data here.
 func wordLlmRole(l, r string) string {
 	const bt = "`"
 	return fmt.Sprintf(
 		`You are a concise %s language teacher for %s speakers. You explain individual words in context. Always respond in %s.
+
+The user input starts with the full text of the story the sentence comes from. Use it only as context to disambiguate the word's meaning, register, and references; explain only the requested word in its sentence, never summarize or comment on the story itself.
 
 Give a brief explanation: the translation, plus grammar notes only when they clarify this specific word in this specific sentence, such as a noun's gender/case, a verb form, or an idiomatic usage. Do not name the part of speech ("is a noun", "is a verb") as a standalone fact - it is almost always obvious from the translation. Mention the part of speech only when it resolves a real ambiguity in this sentence.
 
@@ -381,40 +395,75 @@ Keep it to 1-2 short sentences. Do NOT use HTML formatting, respond in plain tex
 	)
 }
 
-func wordLlmQueryContent(l, r, word, rSentence, maybeLSentence string) string {
+// wordLlmQueryContent builds the user message. The story text deliberately
+// comes FIRST and the per-click parts (word, sentence, translation) LAST:
+// OpenAI's prompt cache matches the exact token prefix, so every word click
+// within the same story shares the "system role + story text" prefix and only
+// pays full input price for the short variable tail.
+func wordLlmQueryContent(l, r, storyText, word, rSentence, maybeLSentence string) string {
 	maybeLSentence = strings.TrimSpace(maybeLSentence)
 
 	if l == "en" {
 		if maybeLSentence == "" {
-			return fmt.Sprintf(`Explain the word "%s" in the following %s sentence:
-"%s"`, word, LANGUAGES_EN[r], rSentence)
+			return fmt.Sprintf(`Full text of the story for context:
+"""
+%s
+"""
+
+Explain the word "%s" in the following %s sentence:
+"%s"`, storyText, word, LANGUAGES_EN[r], rSentence)
 		}
 
-		return fmt.Sprintf(`Explain the word "%s" in the following %s sentence:
+		return fmt.Sprintf(`Full text of the story for context:
+"""
+%s
+"""
+
+Explain the word "%s" in the following %s sentence:
 "%s"
-Translation: "%s"`, word, LANGUAGES_EN[r], rSentence, maybeLSentence)
+Translation: "%s"`, storyText, word, LANGUAGES_EN[r], rSentence, maybeLSentence)
 	}
 
 	if l == "ru" {
 		if maybeLSentence == "" {
-			return fmt.Sprintf(`Объясни слово "%s" в следующем предложении на %s языке:
-"%s"`, word, LANGUAGES_RU[r], rSentence)
+			return fmt.Sprintf(`Полный текст истории для контекста:
+"""
+%s
+"""
+
+Объясни слово "%s" в следующем предложении на %s языке:
+"%s"`, storyText, word, LANGUAGES_RU[r], rSentence)
 		}
 
-		return fmt.Sprintf(`Объясни слово "%s" в следующем предложении на %s языке:
+		return fmt.Sprintf(`Полный текст истории для контекста:
+"""
+%s
+"""
+
+Объясни слово "%s" в следующем предложении на %s языке:
 "%s"
-Перевод: "%s"`, word, LANGUAGES_RU[r], rSentence, maybeLSentence)
+Перевод: "%s"`, storyText, word, LANGUAGES_RU[r], rSentence, maybeLSentence)
 	}
 
 	if l == "de" {
 		if maybeLSentence == "" {
-			return fmt.Sprintf(`Erkläre das Wort "%s" im folgenden %s Satz:
-"%s"`, word, LANGUAGES_DE[r], rSentence)
+			return fmt.Sprintf(`Der vollständige Text der Geschichte als Kontext:
+"""
+%s
+"""
+
+Erkläre das Wort "%s" im folgenden %s Satz:
+"%s"`, storyText, word, LANGUAGES_DE[r], rSentence)
 		}
 
-		return fmt.Sprintf(`Erkläre das Wort "%s" im folgenden %s Satz:
+		return fmt.Sprintf(`Der vollständige Text der Geschichte als Kontext:
+"""
+%s
+"""
+
+Erkläre das Wort "%s" im folgenden %s Satz:
 "%s"
-Übersetzung: "%s"`, word, LANGUAGES_DE[r], rSentence, maybeLSentence)
+Übersetzung: "%s"`, storyText, word, LANGUAGES_DE[r], rSentence, maybeLSentence)
 	}
 
 	panic(fmt.Sprintf("Unknown language %s", l))
@@ -438,10 +487,16 @@ func loadWord(wId WordExplanationId) (WordExplanation, error) {
 	return WordExplanation{Content: content, DictionaryEntryId: dictionaryEntryId}, nil
 }
 
-func explainWord(ctx context.Context, l, r, word, maybeLSentence, rSentence string) (string, error) {
+func explainWord(ctx context.Context, wId WordExplanationId, word, storyText, maybeLSentence, rSentence string) (string, error) {
+	// The shared prompt prefix is "role + story text", so the cache key groups
+	// requests by (l, r, story): word clicks within the same story route to
+	// the same cache shard and reuse the cached story prefix.
 	response, err := llm.Invoke(
 		ctx,
-		wordLlmRole(l, r), wordLlmQueryContent(l, r, word, rSentence, maybeLSentence), llm.Gpt)
+		wordLlmRole(wId.L, wId.R),
+		wordLlmQueryContent(wId.L, wId.R, storyText, word, rSentence, maybeLSentence),
+		llm.Gpt,
+		fmt.Sprintf("word-explanation-%s-%s-%s", wId.L, wId.R, wId.StoryId))
 	if err != nil {
 		return "", err
 	}
@@ -456,7 +511,7 @@ func explainWord(ctx context.Context, l, r, word, maybeLSentence, rSentence stri
 // fails. The dictionary ingest is a side benefit; if it fails we log loudly and
 // return the explanation with a NULL dictionary entry id (the word simply won't
 // be Save-able), rather than denying the user their explanation.
-func generateWord(ctx context.Context, wId WordExplanationId, word, maybeLSentence, rSentence string) (WordExplanation, error) {
+func generateWord(ctx context.Context, wId WordExplanationId, word, storyText, maybeLSentence, rSentence string) (WordExplanation, error) {
 	var (
 		wg         sync.WaitGroup
 		content    string
@@ -468,7 +523,7 @@ func generateWord(ctx context.Context, wId WordExplanationId, word, maybeLSenten
 	wg.Add(2)
 	go func() {
 		defer wg.Done()
-		content, explainErr = explainWord(ctx, wId.L, wId.R, word, maybeLSentence, rSentence)
+		content, explainErr = explainWord(ctx, wId, word, storyText, maybeLSentence, rSentence)
 	}()
 	go func() {
 		defer wg.Done()
@@ -493,7 +548,11 @@ func generateWord(ctx context.Context, wId WordExplanationId, word, maybeLSenten
 	return result, nil
 }
 
-func GetWord(ctx context.Context, wId WordExplanationId, maybeLSentence string, rSentence string) (WordExplanation, error) {
+// GetWord returns the explanation for a word click, generating and persisting
+// it on first request. storyText is the full story text in the learned
+// language (r); it is fed to the LLM as context and must be identical across
+// calls for the same story so the provider prompt cache can reuse the prefix.
+func GetWord(ctx context.Context, wId WordExplanationId, storyText string, maybeLSentence string, rSentence string) (WordExplanation, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Getting word explanation %s", wId.String()))
 	defer trace.Stop()
 
@@ -511,7 +570,7 @@ func GetWord(ctx context.Context, wId WordExplanationId, maybeLSentence string, 
 		return WordExplanation{}, fmt.Errorf("failed to extract word: %w", err)
 	}
 
-	e, err = generateWord(ctx, wId, word, maybeLSentence, rSentence)
+	e, err = generateWord(ctx, wId, word, storyText, maybeLSentence, rSentence)
 	if err != nil {
 		return WordExplanation{}, fmt.Errorf("failed to generate word explanation: %w", err)
 	}

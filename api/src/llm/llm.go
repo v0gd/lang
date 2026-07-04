@@ -43,15 +43,37 @@ const claudeFable5ModelId anthropic.Model = "claude-fable-5"
 
 const maxTokens = 8192
 
+// logGptUsage records token accounting for an OpenAI response on the trace.
+// The cached count shows whether the provider prompt cache is being hit:
+// OpenAI caches automatically, but only for prompts >= 1024 tokens and only
+// when the token prefix matches a recent request exactly.
+func logGptUsage(trace *telemetry.Trace, usage openai.CompletionUsage) {
+	trace.Log(fmt.Sprintf(
+		"token usage: prompt=%d (cached=%d) completion=%d",
+		usage.PromptTokens, usage.PromptTokensDetails.CachedTokens, usage.CompletionTokens))
+}
+
+func logClaudeUsage(trace *telemetry.Trace, usage anthropic.Usage) {
+	trace.Log(fmt.Sprintf(
+		"token usage: input=%d (cacheRead=%d cacheWrite=%d) output=%d",
+		usage.InputTokens, usage.CacheReadInputTokens, usage.CacheCreationInputTokens, usage.OutputTokens))
+}
+
 // Invoke runs a plain text-only chat completion. The context is forwarded
 // into the SDK call: cancelling it (e.g. via the HTTP request context when
 // the client disconnects) aborts the in-flight request.
-func Invoke(ctx context.Context, role string, content string, model Model) (string, error) {
+//
+// cacheKey is forwarded to OpenAI as prompt_cache_key: requests sharing a
+// prompt prefix should pass the same key so they land on the same cache shard
+// and hit the provider prompt cache. Pass "" for one-off or short (<1024
+// token) prompts where caching cannot apply. Claude models have no
+// equivalent routing parameter, so the key is ignored there.
+func Invoke(ctx context.Context, role string, content string, model Model, cacheKey string) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGpt(ctx, role, content, openai.ChatModel("gpt-5.5"))
+		return invokeGpt(ctx, role, content, openai.ChatModel("gpt-5.5"), cacheKey)
 	case GptMini:
-		return invokeGpt(ctx, role, content, openai.ChatModelGPT5_4Mini)
+		return invokeGpt(ctx, role, content, openai.ChatModelGPT5_4Mini, cacheKey)
 	case ClaudeSonnet:
 		return invokeClaude(ctx, role, content, anthropic.ModelClaudeSonnet4_6)
 	case ClaudeOpus:
@@ -63,7 +85,7 @@ func Invoke(ctx context.Context, role string, content string, model Model) (stri
 	}
 }
 
-func invokeGpt(ctx context.Context, role string, content string, model openai.ChatModel) (string, error) {
+func invokeGpt(ctx context.Context, role string, content string, model openai.ChatModel, cacheKey string) (string, error) {
 	trace := telemetry.NewTrace(fmt.Sprintf("Invoking Gpt \"%s\"", roleTruncatedForTrace(role)))
 	defer trace.Stop()
 
@@ -73,19 +95,22 @@ func invokeGpt(ctx context.Context, role string, content string, model openai.Ch
 	}
 	messages = append(messages, openai.UserMessage(content))
 
-	resp, err := openaiClient.Chat.Completions.New(
-		ctx,
-		openai.ChatCompletionNewParams{
-			Model:               model,
-			Messages:            messages,
-			MaxCompletionTokens: openai.Int(maxTokens),
-			FrequencyPenalty:    openai.Float(0.0),
-			PresencePenalty:     openai.Float(0.0),
-		},
-	)
+	params := openai.ChatCompletionNewParams{
+		Model:               model,
+		Messages:            messages,
+		MaxCompletionTokens: openai.Int(maxTokens),
+		FrequencyPenalty:    openai.Float(0.0),
+		PresencePenalty:     openai.Float(0.0),
+	}
+	if cacheKey != "" {
+		params.PromptCacheKey = openai.String(cacheKey)
+	}
+
+	resp, err := openaiClient.Chat.Completions.New(ctx, params)
 	if err != nil {
 		return "", err
 	}
+	logGptUsage(trace, resp.Usage)
 
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("no choices returned")
@@ -119,6 +144,7 @@ func invokeClaude(ctx context.Context, role string, content string, model anthro
 	if err != nil {
 		return "", err
 	}
+	logClaudeUsage(trace, resp.Usage)
 
 	if resp.StopReason != anthropic.StopReasonEndTurn {
 		return "", fmt.Errorf("finished with non-end_turn reason: %s", resp.StopReason)
@@ -220,6 +246,7 @@ func invokeGptStructured(ctx context.Context, role string, content string, schem
 	if err != nil {
 		return "", err
 	}
+	logGptUsage(trace, resp.Usage)
 
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("no choices returned")
@@ -267,6 +294,7 @@ func invokeClaudeStructured(ctx context.Context, role string, content string, sc
 	if err != nil {
 		return "", err
 	}
+	logClaudeUsage(trace, resp.Usage)
 
 	if resp.StopReason != anthropic.StopReasonEndTurn {
 		return "", fmt.Errorf("finished with non-end_turn reason: %s", resp.StopReason)
@@ -378,6 +406,7 @@ func invokeGptStructuredWithImages(
 	if err != nil {
 		return "", err
 	}
+	logGptUsage(trace, resp.Usage)
 
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("no choices returned")
@@ -398,7 +427,7 @@ func Test() {
 	println("Testing ChatGPT")
 	role := "You are a pirate."
 	content := "Greet me"
-	resp, err := Invoke(context.Background(), role, content, Gpt)
+	resp, err := Invoke(context.Background(), role, content, Gpt, "")
 	if err != nil {
 		panic(err)
 	}

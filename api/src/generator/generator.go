@@ -269,7 +269,7 @@ func generateStoryInEnglish(ctx context.Context, level string, topics []string, 
 	role := "You are a professional writer for language learners."
 	content := query(level, topics, moods)
 
-	sText, err := llm.Invoke(ctx, role, content, llm.Gpt)
+	sText, err := llm.Invoke(ctx, role, content, llm.Gpt, "")
 	if err == nil {
 		return sText, nil
 	}
@@ -279,7 +279,7 @@ func generateStoryInEnglish(ctx context.Context, level string, topics []string, 
 	}
 	slog.Error(fmt.Sprintf("story generation failed, falling back to Gpt: %v", err))
 
-	sText, err = llm.Invoke(ctx, role, content, llm.Gpt)
+	sText, err = llm.Invoke(ctx, role, content, llm.Gpt, "")
 	if err != nil {
 		return "", fmt.Errorf("failed to generate story with fallback model, llm error: %w", err)
 	}
@@ -309,7 +309,8 @@ func translateStory(ctx context.Context, l string, r string, s string) (string, 
 				"You try to translate text as close to the original as possible, "+
 				"while it should sound absolutely natural in the target language.", rLang),
 		fmt.Sprintf("Translate the following text to %s:\n\n%s", rLang, s),
-		llm.Gpt)
+		llm.Gpt,
+		"")
 }
 
 func logIfError(msg string, err error) {

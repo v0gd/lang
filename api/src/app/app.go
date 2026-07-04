@@ -572,7 +572,12 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request, u user.User
 			RSentenceIdx: rIdx,
 			WordIdx:      wordIdx,
 		}
-		expl, eErr := explanation.GetWord(req.Context(), wId, lSentenceText, rSentenceText)
+		// The full story text gives the word-explanation LLM the surrounding
+		// context. Gender markers are stripped for the same reason as for the
+		// sentences above. ToPlainStr is deterministic, which keeps the prompt
+		// prefix byte-identical across word clicks (prompt-cache friendly).
+		storyText := gender.Strip(st.Localizations[r].ToPlainStr())
+		expl, eErr := explanation.GetWord(req.Context(), wId, storyText, lSentenceText, rSentenceText)
 		if eErr != nil {
 			return fmt.Errorf("explanation.GetWord error: %w", eErr)
 		}
