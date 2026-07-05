@@ -107,16 +107,30 @@ export function WordExplanationPopup({
       onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
-      {/* The Listen row is pinned to the popup's anchored edge: top when the
-          popup opens below the word (top-anchored, grows downward), bottom
-          when it opens above (bottom-anchored, grows upward). That way the
-          button keeps its position on the page when the loading row is
-          replaced by the explanation text. The edge is switched via CSS
-          order, NOT by rendering the row in two conditional slots: the row
-          must keep its React identity across an above/below flip, or the
-          remount would stop in-progress audio playback. */}
-      <div className={above ? "order-last mt-3" : "mb-3"}>
+      {/* The actions row (Listen + save-to-dictionary) is pinned to the
+          popup's anchored edge: top when the popup opens below the word
+          (top-anchored, grows downward), bottom when it opens above
+          (bottom-anchored, grows upward). That way the buttons keep their
+          position on the page when the loading row is replaced by the
+          explanation text. The edge is switched via CSS order, NOT by
+          rendering the row in two conditional slots: the row must keep its
+          React identity across an above/below flip, or the remount would
+          stop in-progress audio playback. The save button mounts to the
+          RIGHT of Listen once the explanation arrives, so Listen itself
+          never moves. */}
+      <div
+        className={`flex flex-wrap items-center gap-x-2 gap-y-2 ${
+          above ? "order-last mt-3" : "mb-3"
+        }`}
+      >
         <ListenSentenceButton l={l} storyId={storyId} r={r} rSentenceIdx={rSentenceIdx} />
+        {query.isSuccess && query.data.dictionaryEntryId !== null && (
+          <SaveWordButton
+            l={l}
+            dictionaryEntryId={query.data.dictionaryEntryId}
+            alreadySaved={query.data.alreadySaved}
+          />
+        )}
       </div>
       {query.isPending && (
         <div className="flex items-center gap-2 text-secondary-text">
@@ -149,13 +163,6 @@ export function WordExplanationPopup({
         <p className="text-sm text-main-text leading-relaxed select-text">
           {query.data.content}
         </p>
-      )}
-      {query.isSuccess && query.data.dictionaryEntryId !== null && (
-        <SaveWordButton
-          l={l}
-          dictionaryEntryId={query.data.dictionaryEntryId}
-          alreadySaved={query.data.alreadySaved}
-        />
       )}
     </div>
   );
@@ -253,7 +260,27 @@ function ListenSentenceButton({
         className="flex items-center gap-1.5 text-sm font-medium text-primary border border-border rounded-lg px-3 py-1.5 bg-surface hover:bg-cream-dark transition-colors disabled:opacity-50"
       >
         {playState === "playing" ? <FaStop size={12} /> : <FaVolumeHigh size={12} />}
-        {label}
+        {/* The Listen/Stop labels are stacked in one grid cell with the
+            inactive ones invisible, so the button is always as wide as the
+            longer of the two and doesn't resize (shifting the save button
+            next to it) when playback toggles. */}
+        <span className="grid text-center">
+          <span
+            className="col-start-1 row-start-1 invisible whitespace-nowrap"
+            aria-hidden="true"
+          >
+            {strings.listen_button}
+          </span>
+          <span
+            className="col-start-1 row-start-1 invisible whitespace-nowrap"
+            aria-hidden="true"
+          >
+            {strings.listen_stop}
+          </span>
+          <span className="col-start-1 row-start-1 whitespace-nowrap">
+            {label}
+          </span>
+        </span>
       </button>
       {playState === "error" && (
         <span className="text-sm text-red-600">{strings.listen_error}</span>
@@ -290,7 +317,7 @@ function SaveWordButton({
   // up to date in the query cache, so this stays correct across popup reopens.
   if (alreadySaved) {
     return (
-      <div className="mt-3 flex items-center gap-3">
+      <div className="ml-auto flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="flex items-center gap-1.5 text-sm font-medium text-primary">
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
             <path
@@ -321,12 +348,14 @@ function SaveWordButton({
   }
 
   return (
-    <div className="mt-3 flex items-center gap-2">
+    <div className="ml-auto flex flex-wrap items-center gap-x-2 gap-y-1">
       <button
         type="button"
         disabled={saveMutation.isPending}
         onClick={() => saveMutation.mutate({ dictionaryEntryId, l })}
-        className="bg-primary hover:bg-primary-hover text-white px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+        // border-transparent matches the bordered Listen button's height, so
+        // the two buttons sharing a row render equally tall.
+        className="bg-primary hover:bg-primary-hover text-white border border-transparent px-3 py-1.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
       >
         {saveMutation.isPending
           ? lstr(l).saving_word
