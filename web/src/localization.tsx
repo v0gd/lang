@@ -19,7 +19,6 @@ export interface LocalizationStrings {
   save_word_error: string;
   save_word_limit_error: string;
   remove_word_button: string;
-  removing_word: string;
   remove_word_error: string;
   my_dictionary_nav: string;
   my_dictionary_header: string;
@@ -166,14 +165,13 @@ const strings = new Map<string, LocalizationStrings>([
       listen_stop: "Stop",
       listen_loading: "Loading...",
       listen_error: "Couldn't play the audio — try again",
-      save_word_button: "Save to my dictionary",
+      save_word_button: "Save to dictionary",
       saving_word: "Saving...",
       word_saved: "Saved",
       save_word_error: "Couldn't save — try again",
       save_word_limit_error:
         "Dictionary full (1000 words) — remove some to save more",
-      remove_word_button: "Remove from my dictionary",
-      removing_word: "Removing...",
+      remove_word_button: "Remove from dictionary",
       remove_word_error: "Couldn't remove — try again",
       my_dictionary_nav: "My dictionary",
       my_dictionary_header: "My dictionary",
@@ -367,14 +365,13 @@ const strings = new Map<string, LocalizationStrings>([
       listen_stop: "Stopp",
       listen_loading: "Wird geladen...",
       listen_error: "Audio konnte nicht abgespielt werden — bitte erneut versuchen",
-      save_word_button: "In mein Wörterbuch speichern",
+      save_word_button: "Ins Wörterbuch speichern",
       saving_word: "Wird gespeichert...",
       word_saved: "Gespeichert",
       save_word_error: "Speichern fehlgeschlagen — bitte erneut versuchen",
       save_word_limit_error:
         "Wörterbuch voll (1000 Wörter) — bitte einige entfernen",
-      remove_word_button: "Aus meinem Wörterbuch entfernen",
-      removing_word: "Wird entfernt...",
+      remove_word_button: "Aus dem Wörterbuch entfernen",
       remove_word_error: "Entfernen fehlgeschlagen — bitte erneut versuchen",
       my_dictionary_nav: "Mein Wörterbuch",
       my_dictionary_header: "Mein Wörterbuch",
@@ -573,14 +570,13 @@ const strings = new Map<string, LocalizationStrings>([
       listen_stop: "Стоп",
       listen_loading: "Загрузка...",
       listen_error: "Не удалось воспроизвести аудио — попробуйте ещё раз",
-      save_word_button: "Сохранить в мой словарь",
+      save_word_button: "Сохранить в словарь",
       saving_word: "Сохранение...",
       word_saved: "Сохранено",
       save_word_error: "Не удалось сохранить — попробуйте ещё раз",
       save_word_limit_error:
         "Словарь заполнен (1000 слов) — удалите часть, чтобы добавить ещё",
-      remove_word_button: "Удалить из моего словаря",
-      removing_word: "Удаление...",
+      remove_word_button: "Удалить из словаря",
       remove_word_error: "Не удалось удалить — попробуйте ещё раз",
       my_dictionary_nav: "Мой словарь",
       my_dictionary_header: "Мой словарь",

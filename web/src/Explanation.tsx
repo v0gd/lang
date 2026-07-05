@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { FaVolumeHigh, FaStop } from "react-icons/fa6";
+import { FaVolumeHigh, FaStop, FaTrashCan } from "react-icons/fa6";
 import {
   SAVE_WORD_LIMIT_ERROR,
   fetchSentenceAudioUrl,
@@ -330,13 +330,13 @@ function SaveWordButton({
         </span>
         <button
           type="button"
+          aria-label={lstr(l).remove_word_button}
+          title={lstr(l).remove_word_button}
           disabled={removeMutation.isPending}
           onClick={() => removeMutation.mutate({ dictionaryEntryId })}
-          className="text-sm font-medium text-secondary-text hover:text-red-600 transition-colors disabled:opacity-50"
+          className="flex items-center justify-center p-1.5 text-secondary-text hover:text-red-600 transition-colors disabled:opacity-50"
         >
-          {removeMutation.isPending
-            ? lstr(l).removing_word
-            : lstr(l).remove_word_button}
+          <FaTrashCan size={14} />
         </button>
         {removeMutation.isError && (
           <span className="text-sm text-red-600">
