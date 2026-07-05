@@ -9,6 +9,11 @@ CREATE TABLE story (
     author_id VARCHAR(256) NOT NULL,
     created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     input_params JSON NOT NULL,  -- parameters used to generate the story
+    -- Optional user-provided instructions the story was generated with
+    -- (already normalized and safety-gated). Empty for stories without
+    -- instructions and for non-generated sources (image/provided). Length
+    -- mirrors generator.MaxInstructionsChars.
+    instructions VARCHAR(150) NOT NULL DEFAULT '',
     content JSON NOT NULL,
     deleted TINYINT(1) NOT NULL DEFAULT 0,
     -- Where the story originated from. 'generated': produced by the LLM
@@ -119,17 +124,21 @@ CREATE TABLE dictionary_entry_localization (
 );
 
 -- Audit log of safety-gate rejections on user-submitted text (pasted via
--- /upload or OCR'd from photos via /scan). One row per fired verdict: a
--- single submission that trips both the prompt-injection and the
--- content-policy classifier produces two rows. Written by the safety
--- package; application code only inserts, never updates or deletes, so the
--- audit trail stays complete.
+-- /upload, OCR'd from photos via /scan, or custom story-generation
+-- instructions via /generate). One row per fired verdict: a single
+-- submission that trips both the prompt-injection and the content-policy
+-- classifier produces two rows. Written by the safety package; application
+-- code only inserts, never updates or deletes, so the audit trail stays
+-- complete.
 CREATE TABLE safety_violation (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     user_id BIGINT UNSIGNED NOT NULL,
     -- Which ingest flow the text entered through.
-    source ENUM('upload','scan') NOT NULL,
-    violation_type ENUM('prompt_injection','disallowed_content') NOT NULL,
+    source ENUM('upload','scan','generate') NOT NULL,
+    -- 'off_topic_instructions' fires only for source='generate': the text is
+    -- not a plausible story-generation instruction but an attempt to use the
+    -- generator as a general-purpose LLM (e.g. coding or factual queries).
+    violation_type ENUM('prompt_injection','disallowed_content','off_topic_instructions') NOT NULL,
     -- LLM-reported snake_case category (e.g. 'hate_speech') when
     -- violation_type='disallowed_content'; empty for prompt injections.
     disallowed_reason VARCHAR(255) NOT NULL DEFAULT '',

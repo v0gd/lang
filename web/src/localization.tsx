@@ -88,10 +88,15 @@ export interface LocalizationStrings {
   generate_mood_heading: string;
   generate_topic_heading: string;
   generate_topic_optional: string;
+  generate_instructions_heading: string;
+  generate_instructions_placeholder: string;
+  generate_instructions_help: string;
   generate_login_prompt: string;
   generate_button: string;
   generate_level_required: string;
   generate_error: string;
+  generate_error_disallowed: string;
+  generate_error_off_topic: string;
   generate_in_progress: string;
   delete_story_confirm_title: string;
   delete_story_confirm_message: string;
@@ -246,10 +251,19 @@ const strings = new Map<string, LocalizationStrings>([
       generate_mood_heading: "Mood",
       generate_topic_heading: "Topic",
       generate_topic_optional: "Optional",
+      generate_instructions_heading: "Custom instructions",
+      generate_instructions_placeholder:
+        "e.g. focus on the past perfect tense, or a story about a dog that ran away...",
+      generate_instructions_help:
+        "Steer the story your way: a grammar structure to practice, vocabulary to include, or a plot idea.",
       generate_login_prompt: "Log in to generate a new story",
       generate_button: "Create",
       generate_level_required: "Choose a level",
       generate_error: "Error — try again",
+      generate_error_disallowed:
+        "These instructions aren't allowed for story generation. Please rephrase them.",
+      generate_error_off_topic:
+        "This field only shapes your story — try a grammar focus, vocabulary, or a plot idea instead.",
       generate_in_progress: "Generating...",
       delete_story_confirm_title: "Delete this story?",
       delete_story_confirm_message:
@@ -450,10 +464,19 @@ const strings = new Map<string, LocalizationStrings>([
       generate_mood_heading: "Stimmung",
       generate_topic_heading: "Thema",
       generate_topic_optional: "Optional",
+      generate_instructions_heading: "Eigene Wünsche",
+      generate_instructions_placeholder:
+        "z. B. Fokus auf das Plusquamperfekt, oder eine Geschichte über einen entlaufenen Hund...",
+      generate_instructions_help:
+        "Gib der Geschichte eine Richtung: eine Grammatikstruktur zum Üben, bestimmten Wortschatz oder eine Handlungsidee.",
       generate_login_prompt: "Einloggen, um eine Geschichte zu generieren",
       generate_button: "Generieren!",
       generate_level_required: "Niveau wählen",
       generate_error: "Fehler — erneut versuchen",
+      generate_error_disallowed:
+        "Diese Wünsche sind für die Generierung nicht zugelassen. Bitte formuliere sie um.",
+      generate_error_off_topic:
+        "Dieses Feld formt nur deine Geschichte — versuche eine Grammatikstruktur, Wortschatz oder eine Handlungsidee.",
       generate_in_progress: "Wird generiert...",
       delete_story_confirm_title: "Diese Geschichte löschen?",
       delete_story_confirm_message:
@@ -651,10 +674,19 @@ const strings = new Map<string, LocalizationStrings>([
       generate_mood_heading: "Настроение",
       generate_topic_heading: "Тема",
       generate_topic_optional: "Необязательно",
+      generate_instructions_heading: "Пожелания",
+      generate_instructions_placeholder:
+        "например, сделать акцент на прошедшем времени или история о сбежавшей собаке...",
+      generate_instructions_help:
+        "Задайте истории направление: грамматическая конструкция для практики, нужная лексика или идея сюжета.",
       generate_login_prompt: "Войдите, чтобы сгенерировать историю",
       generate_button: "Сгенерировать!",
       generate_level_required: "Выберите уровень",
       generate_error: "Ошибка — попробуйте снова",
+      generate_error_disallowed:
+        "Такие пожелания нельзя использовать для генерации. Пожалуйста, переформулируйте их.",
+      generate_error_off_topic:
+        "Это поле влияет только на историю — попробуйте указать грамматику, лексику или идею сюжета.",
       generate_in_progress: "Генерация...",
       delete_story_confirm_title: "Удалить эту историю?",
       delete_story_confirm_message:

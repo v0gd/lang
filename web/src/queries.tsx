@@ -113,12 +113,19 @@ function isAbortError(err: unknown): boolean {
   return false;
 }
 
-// Thrown by useScanMutation and useUploadMutation when the backend safety
-// gate rejects the input (pasted text, or text extracted from scanned
-// images). The backend deliberately reports prompt-injection and
-// content-policy rejections under this single generic code so an attacker
-// gets no confirmation that an injection attempt was specifically detected.
+// Thrown by useScanMutation, useUploadMutation, and useGenerateStoryMutation
+// when the backend safety gate rejects the input (pasted text, text
+// extracted from scanned images, or custom generation instructions). The
+// backend deliberately reports prompt-injection and content-policy
+// rejections under this single generic code so an attacker gets no
+// confirmation that an injection attempt was specifically detected.
 export class DisallowedContentError {}
+
+// Thrown by useGenerateStoryMutation when the backend decides the custom
+// instructions are not a plausible story-shaping request but an attempt to
+// use the generator as a general-purpose LLM (e.g. coding or factual
+// queries). The UI shows a message explaining what the field is for.
+export class OffTopicInstructionsError {}
 
 export function useStoryQuery(storyId: string, l: string, r: string) {
   let url = new URL(`${API_URL}/story`);
@@ -166,6 +173,7 @@ export function useGenerateStoryMutation() {
       level,
       moods,
       topics,
+      instructions,
       signal,
     }: {
       // l is the optional mother-tongue locale; omit it (empty string) to
@@ -175,6 +183,9 @@ export function useGenerateStoryMutation() {
       level: string;
       moods: string[];
       topics: string[];
+      // Optional free-text instructions shaping the story (max
+      // MAX_INSTRUCTIONS_CHARS characters, validated again server-side).
+      instructions: string;
       // Optional AbortSignal so the caller can cancel the in-flight request.
       signal?: AbortSignal;
     }) => {
@@ -189,6 +200,9 @@ export function useGenerateStoryMutation() {
       url.searchParams.append("level", level);
       url.searchParams.append("moods", moodStr);
       url.searchParams.append("topics", topicStr);
+      if (instructions) {
+        url.searchParams.append("instructions", instructions);
+      }
 
       const params = await fetchParamsWithAuth("POST");
       try {
@@ -202,6 +216,14 @@ export function useGenerateStoryMutation() {
           };
         } else if (res.status === 404) {
           throw new NotFoundError();
+        } else if (res.status === 422) {
+          const body = await res.json().catch(() => null);
+          const code = body && typeof body.error === "string" ? body.error : "";
+          if (code === "disallowed_content")
+            throw new DisallowedContentError();
+          if (code === "off_topic_instructions")
+            throw new OffTopicInstructionsError();
+          throw new Error("Unexpected 422 result for generate");
         } else {
           console.error("Unexpected result for", url, res);
           throw new Error("Unexpected result for story generate mutation");

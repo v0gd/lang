@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   CancelledError,
+  DisallowedContentError,
+  OffTopicInstructionsError,
   useGenerateStoryMutation,
   useProgressLinesQuery,
 } from "./queries";
@@ -64,10 +66,16 @@ const moodIcons: Record<string, string> = {
 
 const MAX_SELECTIONS = 2;
 
+// Mirrors generator.MaxInstructionsChars on the Go side; the backend
+// re-validates the length and normalizes the text, so a client-side bypass
+// is caught.
+const MAX_INSTRUCTIONS_CHARS = 150;
+
 export function GenerateStoryView({ l, r }: { l: string; r: string }) {
   const [selectedLevel, setSelectedLevel] = useState<string>("");
   const [selectedMoods, setSelectedMoods] = useState<string[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [instructions, setInstructions] = useState<string>("");
 
   const handleLevelSelect = (level: string) => setSelectedLevel(level);
 
@@ -120,6 +128,7 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
       level: selectedLevel,
       moods: selectedMoods,
       topics: selectedTopics,
+      instructions: instructions.trim(),
       signal: abortRef.current.signal,
     });
   };
@@ -178,6 +187,19 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
   );
 
   const canGenerate = !loggedIn || (selectedLevel !== "" && generate.isIdle);
+
+  // Instruction rejections get a specific explanation above the button;
+  // editing the instructions resets the mutation so the user can retry.
+  // Other errors keep the existing generic button-label treatment.
+  const instructionsErrorMessage = (() => {
+    if (!generate.isError) return null;
+    const err = generate.error;
+    if (err instanceof DisallowedContentError)
+      return strings.generate_error_disallowed;
+    if (err instanceof OffTopicInstructionsError)
+      return strings.generate_error_off_topic;
+    return null;
+  })();
 
   return (
     <div className="flex flex-col gap-10">
@@ -298,24 +320,65 @@ export function GenerateStoryView({ l, r }: { l: string; r: string }) {
         </div>
       </section>
 
-      <button
-        type="button"
-        onClick={handleGenerate}
-        className="w-full py-4 rounded-xl bg-primary text-white text-lg font-bold transition-colors hover:bg-primary-hover disabled:opacity-50"
-        disabled={!canGenerate}
-      >
-        {!loggedIn && strings.generate_login_prompt}
-        {loggedIn && generate.isIdle && selectedLevel && strings.generate_button}
-        {loggedIn &&
-          generate.isIdle &&
-          !selectedLevel &&
-          strings.generate_level_required}
-        {loggedIn && generate.isError && strings.generate_error}
-        {loggedIn &&
-          !generate.isIdle &&
-          !generate.isError &&
-          strings.generate_in_progress}
-      </button>
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <h2 className={sectionLabel}>
+              {strings.generate_instructions_heading}
+            </h2>
+            <span className={optionalLabel}>
+              {strings.generate_topic_optional}
+            </span>
+          </div>
+          <span className="text-xs text-muted-text">
+            {instructions.length} / {MAX_INSTRUCTIONS_CHARS}
+          </span>
+        </div>
+        <textarea
+          value={instructions}
+          onChange={(e) => {
+            if (generate.isError) generate.reset();
+            setInstructions(e.target.value);
+          }}
+          maxLength={MAX_INSTRUCTIONS_CHARS}
+          rows={2}
+          placeholder={strings.generate_instructions_placeholder}
+          disabled={generate.isPending}
+          className="w-full p-4 rounded-xl border border-border bg-surface text-main-text placeholder:text-muted-text focus:outline-none focus:ring-2 focus:ring-primary/40 resize-y disabled:opacity-60"
+        />
+        <p className="mt-2 text-sm text-muted-text">
+          {strings.generate_instructions_help}
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        {instructionsErrorMessage && (
+          <div
+            role="alert"
+            className="text-sm font-semibold text-red-500 text-center"
+          >
+            {instructionsErrorMessage}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={handleGenerate}
+          className="w-full py-4 rounded-xl bg-primary text-white text-lg font-bold transition-colors hover:bg-primary-hover disabled:opacity-50"
+          disabled={!canGenerate}
+        >
+          {!loggedIn && strings.generate_login_prompt}
+          {loggedIn && generate.isIdle && selectedLevel && strings.generate_button}
+          {loggedIn &&
+            generate.isIdle &&
+            !selectedLevel &&
+            strings.generate_level_required}
+          {loggedIn && generate.isError && strings.generate_error}
+          {loggedIn &&
+            !generate.isIdle &&
+            !generate.isError &&
+            strings.generate_in_progress}
+        </button>
+      </section>
     </div>
   );
 }

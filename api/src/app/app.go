@@ -17,6 +17,7 @@ import (
 	"strings"
 	"syscall"
 	"time"
+	"unicode/utf8"
 
 	"lang/api/db"
 	"lang/api/dictionary"
@@ -716,12 +717,52 @@ func generateStoryHandler(w http.ResponseWriter, req *http.Request, u user.User)
 		return newHTTPError(http.StatusBadRequest, "Invalid 'moods' parameter")
 	}
 
+	// Custom instructions: enforce the length limit on the raw input, then
+	// normalize (strip non-alphanumeric / non-punctuation characters) before
+	// anything else sees the text. Only non-empty normalized instructions
+	// pay for the LLM safety gate.
+	instructionsRaw := req.URL.Query().Get("instructions")
+	if utf8.RuneCountInString(instructionsRaw) > generator.MaxInstructionsChars {
+		return newHTTPError(http.StatusBadRequest,
+			"Instructions exceed %d characters", generator.MaxInstructionsChars)
+	}
+	instructions := generator.NormalizeInstructions(instructionsRaw)
+	if instructions != "" {
+		verdict, sErr := safety.CheckInstructions(req.Context(), instructions)
+		if sErr != nil {
+			return fmt.Errorf("safety.CheckInstructions error: %w", sErr)
+		}
+		if verdict.ContainsPromptInjection || verdict.IsDisallowed || verdict.IsOffTopic {
+			// Audit-log every fired verdict before rejecting; a recording
+			// failure must not mask the rejection itself. Same pattern as
+			// the scan/upload safety gates.
+			if recordErr := safety.RecordInstructionsViolations(req.Context(), u.Id, r, verdict, instructions); recordErr != nil {
+				slog.Error(fmt.Sprintf("generate: %v", recordErr))
+			}
+		}
+		if verdict.ContainsPromptInjection || verdict.IsDisallowed {
+			// Deliberate collapse into one generic code, same as scan/upload:
+			// don't confirm to an attacker that their prompt injection was
+			// specifically detected. Server logs keep the distinction.
+			slog.Warn(fmt.Sprintf("generate: safety gate rejected instructions for user %s (injection=%t, disallowed=%t, reason=%q)",
+				u.FirebaseUid, verdict.ContainsPromptInjection, verdict.IsDisallowed, verdict.DisallowedReason))
+			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "disallowed_content"})
+		}
+		if verdict.IsOffTopic {
+			// Off-topic gets its own code: the user should learn that the
+			// field is for shaping stories, not general LLM queries.
+			slog.Warn(fmt.Sprintf("generate: off-topic instructions rejected for user %s: %q", u.FirebaseUid, instructions))
+			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "off_topic_instructions"})
+		}
+	}
+
 	params := generator.InputParameters{
-		Level:  level,
-		L:      l,
-		R:      r,
-		Topics: topicsFiltered,
-		Moods:  moodsFiltered,
+		Level:        level,
+		L:            l,
+		R:            r,
+		Topics:       topicsFiltered,
+		Moods:        moodsFiltered,
+		Instructions: instructions,
 	}
 	// TODO: re-try a few times
 	s, err := generator.Generate(req.Context(), params, u.FirebaseUid)
