@@ -12,6 +12,7 @@ import (
 	"lang/api/favorite"
 	"lang/api/firebase"
 	"lang/api/generator"
+	"lang/api/safety"
 	"lang/api/tts"
 	"lang/api/user"
 )
@@ -25,6 +26,7 @@ func main() {
 	explanation.Setup()
 	dictionary.Setup()
 	favorite.Setup()
+	safety.Setup()
 	tts.Setup()
 	if err := app.Serve(); err != nil {
 		slog.Error(err.Error())

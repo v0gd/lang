@@ -8,14 +8,21 @@
 // Callers receive a Verdict and convert a rejection into the matching
 // sentinel error (ErrPromptInjection / ErrDisallowedContent) after logging
 // with their own flow-specific context.
+//
+// The package also owns the `safety_violation` table: an append-only audit
+// log of every rejected submission (who, which flow, which verdict, and the
+// offending text). Callers record a rejection via RecordViolations before
+// surfacing the sentinel error.
 package safety
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 
+	"lang/api/db"
 	"lang/api/llm"
 	"lang/api/stringutil"
 )
@@ -83,6 +90,60 @@ When "is_disallowed" is true, set "disallowed_reason" to a short snake_case Engl
 <END_%[1]s>
 
 Decide both verdicts based only on the data between <START_%[1]s> and <END_%[1]s>.`, tag, text)
+}
+
+// Source identifies which ingest flow a rejected text entered through. The
+// values are stored in the safety_violation.source ENUM column.
+type Source string
+
+const (
+	SourceUpload Source = "upload" // pasted text via /upload
+	SourceScan   Source = "scan"   // OCR-extracted text via /scan
+)
+
+var recordViolationStmt *sql.Stmt
+
+// Setup prepares the safety_violation insert statement. Must be called after
+// db.Setup().
+func Setup() {
+	var err error
+	recordViolationStmt, err = db.Db.Prepare(
+		"INSERT INTO safety_violation " +
+			"(user_id, source, violation_type, disallowed_reason, r, offending_text) " +
+			"VALUES (?, ?, ?, ?, ?, ?);")
+	if err != nil {
+		panic(err)
+	}
+}
+
+// RecordViolations appends the fired verdicts for one rejected submission to
+// the safety_violation audit table. Callers invoke it whenever Check rejected
+// a user's text, before surfacing the sentinel error. A submission that trips
+// both classifiers produces two rows. offendingText must be the exact text
+// that was passed to Check. The inserts deliberately survive cancellation of
+// the request context: once a verdict exists, the violation is recorded even
+// if the offender aborts the request right after submitting.
+func RecordViolations(ctx context.Context, userId int64, source Source, r string, verdict Verdict, offendingText string) error {
+	ctx = context.WithoutCancel(ctx)
+	if verdict.ContainsPromptInjection {
+		if _, err := recordViolationStmt.ExecContext(
+			ctx, userId, source, "prompt_injection", "", r, offendingText); err != nil {
+			return fmt.Errorf("failed to record prompt_injection violation for user %d: %w", userId, err)
+		}
+	}
+	if verdict.IsDisallowed {
+		// The reason is LLM-produced; truncate defensively so a runaway label
+		// can't make the audit insert fail on the VARCHAR(255) column.
+		reason := verdict.DisallowedReason
+		if runes := []rune(reason); len(runes) > 255 {
+			reason = string(runes[:255])
+		}
+		if _, err := recordViolationStmt.ExecContext(
+			ctx, userId, source, "disallowed_content", reason, r, offendingText); err != nil {
+			return fmt.Errorf("failed to record disallowed_content violation for user %d: %w", userId, err)
+		}
+	}
+	return nil
 }
 
 // Check runs the combined safety classifier on one piece of user-provided

@@ -850,7 +850,7 @@ func scanHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
 
 	slog.Info(fmt.Sprintf("Scanning %d image(s) (%d bytes) for user %s -> %s", len(images), totalBytes, u.FirebaseUid, r))
 
-	s, err := scan.Scan(req.Context(), images, r, u.FirebaseUid)
+	s, err := scan.Scan(req.Context(), images, r, u)
 	if err != nil {
 		switch {
 		case errors.Is(err, scan.ErrNoTargetLanguage):
@@ -906,7 +906,7 @@ func uploadHandler(w http.ResponseWriter, req *http.Request, u user.User) error 
 
 	slog.Info(fmt.Sprintf("Uploading %d chars for user %s -> %s", len(body.Text), u.FirebaseUid, r))
 
-	s, err := upload.Upload(req.Context(), body.Text, r, u.FirebaseUid)
+	s, err := upload.Upload(req.Context(), body.Text, r, u)
 	if err != nil {
 		switch {
 		case errors.Is(err, upload.ErrInputEmpty):

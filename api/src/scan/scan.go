@@ -22,6 +22,7 @@ import (
 	"lang/api/story"
 	"lang/api/stringutil"
 	"lang/api/telemetry"
+	"lang/api/user"
 )
 
 // ErrNoTargetLanguage is returned when the LLM determines the uploaded images
@@ -98,8 +99,10 @@ Handling of non-%[1]s fragments:
 // and safety.ErrPromptInjection / safety.ErrDisallowedContent when the
 // extracted text is rejected by the shared safety gate. ctx is forwarded
 // into all downstream LLM calls so cancelling it aborts every in-flight
-// request in this pipeline.
-func Scan(ctx context.Context, images []Image, r story.Locale, authorId string) (story.StoryMultilingual, error) {
+// request in this pipeline. u must be the fully-resolved authenticated user:
+// the story is attributed to u.FirebaseUid and safety rejections are
+// recorded against u.Id in the safety_violation table.
+func Scan(ctx context.Context, images []Image, r story.Locale, u user.User) (story.StoryMultilingual, error) {
 	if len(images) == 0 {
 		return story.StoryMultilingual{}, fmt.Errorf("scan: no images provided")
 	}
@@ -108,7 +111,7 @@ func Scan(ctx context.Context, images []Image, r story.Locale, authorId string) 
 		return story.StoryMultilingual{}, fmt.Errorf("scan: unsupported target language %q", r)
 	}
 
-	trace := telemetry.NewTrace(fmt.Sprintf("Scanning %d image(s) for %s (%s)", len(images), r, authorId))
+	trace := telemetry.NewTrace(fmt.Sprintf("Scanning %d image(s) for %s (%s)", len(images), r, u.FirebaseUid))
 	defer trace.Stop()
 
 	llmImages := make([]llm.ImageInput, len(images))
@@ -190,12 +193,22 @@ func Scan(ctx context.Context, images []Image, r story.Locale, authorId string) 
 	if safetyErr != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("scan: %w", safetyErr)
 	}
+	if verdict.ContainsPromptInjection || verdict.IsDisallowed {
+		// Audit-log every fired verdict (possibly both) before rejecting. The
+		// recorded text is out.Content - the extracted text exactly as the
+		// safety gate saw it, without the gender annotation. A recording
+		// failure must not mask the rejection itself, so it is logged loudly
+		// and the sentinel error below is still returned.
+		if recordErr := safety.RecordViolations(ctx, u.Id, safety.SourceScan, r, verdict, out.Content); recordErr != nil {
+			slog.Error(fmt.Sprintf("scan: %v", recordErr))
+		}
+	}
 	if verdict.ContainsPromptInjection {
-		slog.Warn(fmt.Sprintf("scan: prompt-injection gate rejected extracted text for user %s", authorId))
+		slog.Warn(fmt.Sprintf("scan: prompt-injection gate rejected extracted text for user %s", u.FirebaseUid))
 		return story.StoryMultilingual{}, safety.ErrPromptInjection
 	}
 	if verdict.IsDisallowed {
-		slog.Warn(fmt.Sprintf("scan: content-policy gate rejected extracted text for user %s (reason=%q)", authorId, verdict.DisallowedReason))
+		slog.Warn(fmt.Sprintf("scan: content-policy gate rejected extracted text for user %s (reason=%q)", u.FirebaseUid, verdict.DisallowedReason))
 		return story.StoryMultilingual{}, safety.ErrDisallowedContent
 	}
 
@@ -239,7 +252,7 @@ func Scan(ctx context.Context, images []Image, r story.Locale, authorId string) 
 	if err := ctx.Err(); err != nil {
 		return story.StoryMultilingual{}, err
 	}
-	if err := generator.Store(ctx, sMult, params, authorId, generator.SourceImage); err != nil {
+	if err := generator.Store(ctx, sMult, params, u.FirebaseUid, generator.SourceImage); err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("scan: failed to persist scanned story: %w", err)
 	}
 	return sMult, nil

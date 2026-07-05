@@ -29,6 +29,7 @@ import (
 	"lang/api/story"
 	"lang/api/stringutil"
 	"lang/api/telemetry"
+	"lang/api/user"
 )
 
 // MaxInputChars caps the user-pasted text length. Counted in runes so the
@@ -128,8 +129,10 @@ func normalizeAndClassify(ctx context.Context, text, targetLanguage string) (nor
 // and persists the resulting story. Returns one of the sentinel errors above
 // on a known failure mode; everything else is wrapped as an unexpected
 // internal error. ctx is forwarded into every LLM call in this pipeline so
-// cancelling it aborts all in-flight requests.
-func Upload(ctx context.Context, text string, r story.Locale, authorId string) (story.StoryMultilingual, error) {
+// cancelling it aborts all in-flight requests. u must be the fully-resolved
+// authenticated user: the story is attributed to u.FirebaseUid and safety
+// rejections are recorded against u.Id in the safety_violation table.
+func Upload(ctx context.Context, text string, r story.Locale, u user.User) (story.StoryMultilingual, error) {
 	if strings.TrimSpace(text) == "" {
 		return story.StoryMultilingual{}, ErrInputEmpty
 	}
@@ -141,7 +144,7 @@ func Upload(ctx context.Context, text string, r story.Locale, authorId string) (
 		return story.StoryMultilingual{}, fmt.Errorf("upload: unsupported target language %q", r)
 	}
 
-	trace := telemetry.NewTrace(fmt.Sprintf("Uploading text for %s (%s, %d chars)", r, authorId, utf8.RuneCountInString(text)))
+	trace := telemetry.NewTrace(fmt.Sprintf("Uploading text for %s (%s, %d chars)", r, u.FirebaseUid, utf8.RuneCountInString(text)))
 	defer trace.Stop()
 
 	// --- Stage 1: combined safety check + normalize, in parallel.
@@ -179,12 +182,20 @@ func Upload(ctx context.Context, text string, r story.Locale, authorId string) (
 	if safetyErr != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("upload: %w", safetyErr)
 	}
+	if verdict.ContainsPromptInjection || verdict.IsDisallowed {
+		// Audit-log every fired verdict (possibly both) before rejecting. A
+		// recording failure must not mask the rejection itself, so it is
+		// logged loudly and the sentinel error below is still returned.
+		if recordErr := safety.RecordViolations(ctx, u.Id, safety.SourceUpload, r, verdict, text); recordErr != nil {
+			slog.Error(fmt.Sprintf("upload: %v", recordErr))
+		}
+	}
 	if verdict.ContainsPromptInjection {
-		slog.Warn(fmt.Sprintf("upload: prompt-injection gate rejected input for user %s", authorId))
+		slog.Warn(fmt.Sprintf("upload: prompt-injection gate rejected input for user %s", u.FirebaseUid))
 		return story.StoryMultilingual{}, safety.ErrPromptInjection
 	}
 	if verdict.IsDisallowed {
-		slog.Warn(fmt.Sprintf("upload: content-policy gate rejected input for user %s (reason=%q)", authorId, verdict.DisallowedReason))
+		slog.Warn(fmt.Sprintf("upload: content-policy gate rejected input for user %s (reason=%q)", u.FirebaseUid, verdict.DisallowedReason))
 		return story.StoryMultilingual{}, safety.ErrDisallowedContent
 	}
 	if normErr != nil {
@@ -257,7 +268,7 @@ func Upload(ctx context.Context, text string, r story.Locale, authorId string) (
 	if err := ctx.Err(); err != nil {
 		return story.StoryMultilingual{}, err
 	}
-	if err := generator.Store(ctx, sMult, params, authorId, generator.SourceProvided); err != nil {
+	if err := generator.Store(ctx, sMult, params, u.FirebaseUid, generator.SourceProvided); err != nil {
 		return story.StoryMultilingual{}, fmt.Errorf("upload: failed to persist story: %w", err)
 	}
 	return sMult, nil

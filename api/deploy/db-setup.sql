@@ -118,6 +118,34 @@ CREATE TABLE dictionary_entry_localization (
     FOREIGN KEY (dictionary_entry_id) REFERENCES dictionary_entry(id)
 );
 
+-- Audit log of safety-gate rejections on user-submitted text (pasted via
+-- /upload or OCR'd from photos via /scan). One row per fired verdict: a
+-- single submission that trips both the prompt-injection and the
+-- content-policy classifier produces two rows. Written by the safety
+-- package; application code only inserts, never updates or deletes, so the
+-- audit trail stays complete.
+CREATE TABLE safety_violation (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    user_id BIGINT UNSIGNED NOT NULL,
+    -- Which ingest flow the text entered through.
+    source ENUM('upload','scan') NOT NULL,
+    violation_type ENUM('prompt_injection','disallowed_content') NOT NULL,
+    -- LLM-reported snake_case category (e.g. 'hate_speech') when
+    -- violation_type='disallowed_content'; empty for prompt injections.
+    disallowed_reason VARCHAR(255) NOT NULL DEFAULT '',
+    -- Target language (r) of the rejected submission.
+    r VARCHAR(10) NOT NULL,
+    -- The full text exactly as it entered the safety gate: the raw pasted
+    -- text for 'upload', the OCR-extracted text for 'scan'. MEDIUMTEXT
+    -- because multi-page scan extractions can exceed the 64KB TEXT limit.
+    offending_text MEDIUMTEXT NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    INDEX (user_id),
+    INDEX (created),
+    FOREIGN KEY (user_id) REFERENCES user(id)
+);
+
 -- A user's personal saved words: simple references into the global dictionary.
 CREATE TABLE user_dictionary_word (
     user_id BIGINT UNSIGNED NOT NULL,
