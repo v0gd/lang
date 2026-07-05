@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import {
   CancelledError,
+  DisallowedContentError,
   NoTargetLanguageError,
   useDeleteStoryMutation,
   useGeneratedStoryListQuery,
@@ -361,11 +362,14 @@ export function StoryMenu({
         scanMutation.reset();
         return;
       }
-      const message =
-        scanMutation.error instanceof NoTargetLanguageError
-          ? lstr(l).scan_no_target_text_error
-          : lstr(l).scan_error;
-      setScanErrorMessage(message);
+      const scanErrorToMessage = (err: unknown): string => {
+        if (err instanceof NoTargetLanguageError)
+          return lstr(l).scan_no_target_text_error;
+        if (err instanceof DisallowedContentError)
+          return lstr(l).scan_error_disallowed;
+        return lstr(l).scan_error;
+      };
+      setScanErrorMessage(scanErrorToMessage(scanMutation.error));
       scanMutation.reset();
     }
   }, [scanMutation.isError, scanMutation.error, scanMutation, l]);

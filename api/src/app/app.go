@@ -27,6 +27,7 @@ import (
 	"lang/api/generator"
 	"lang/api/osutil"
 	"lang/api/progresslines"
+	"lang/api/safety"
 	"lang/api/scan"
 	"lang/api/story"
 	"lang/api/stringutil"
@@ -851,12 +852,18 @@ func scanHandler(w http.ResponseWriter, req *http.Request, u user.User) error {
 
 	s, err := scan.Scan(req.Context(), images, r, u.FirebaseUid)
 	if err != nil {
-		if errors.Is(err, scan.ErrNoTargetLanguage) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusUnprocessableEntity)
-			return json.NewEncoder(w).Encode(map[string]any{"error": "no_target_language"})
+		switch {
+		case errors.Is(err, scan.ErrNoTargetLanguage):
+			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "no_target_language"})
+		case errors.Is(err, safety.ErrPromptInjection), errors.Is(err, safety.ErrDisallowedContent):
+			// Both safety rejections collapse into one generic code on the
+			// wire: confirming to an attacker that their prompt injection was
+			// specifically detected would leak signal about the gate. Server
+			// logs keep the distinction.
+			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "disallowed_content"})
+		default:
+			return fmt.Errorf("scan.Scan error: %w", err)
 		}
-		return fmt.Errorf("scan.Scan error: %w", err)
 	}
 	dict := convertStoryToDict(s, "", r)
 	return writeJSON(w, dict)
@@ -906,9 +913,10 @@ func uploadHandler(w http.ResponseWriter, req *http.Request, u user.User) error 
 			return newHTTPError(http.StatusBadRequest, "Empty text")
 		case errors.Is(err, upload.ErrInputTooLong):
 			return newHTTPError(http.StatusRequestEntityTooLarge, "Text exceeds %d characters", upload.MaxInputChars)
-		case errors.Is(err, upload.ErrPromptInjection):
-			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "prompt_injection"})
-		case errors.Is(err, upload.ErrDisallowedContent):
+		case errors.Is(err, safety.ErrPromptInjection), errors.Is(err, safety.ErrDisallowedContent):
+			// Same deliberate collapse as the scan handler: don't confirm to
+			// an attacker that their prompt injection was detected. Server
+			// logs keep the distinction.
 			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "disallowed_content"})
 		case errors.Is(err, upload.ErrNoTargetLanguage):
 			return writeJSONStatus(w, http.StatusUnprocessableEntity, map[string]any{"error": "no_target_language"})

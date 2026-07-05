@@ -113,10 +113,11 @@ function isAbortError(err: unknown): boolean {
   return false;
 }
 
-// Thrown by useUploadMutation when the prompt-injection gate flags the input.
-export class PromptInjectionError {}
-
-// Thrown by useUploadMutation when the content-policy gate flags the input.
+// Thrown by useScanMutation and useUploadMutation when the backend safety
+// gate rejects the input (pasted text, or text extracted from scanned
+// images). The backend deliberately reports prompt-injection and
+// content-policy rejections under this single generic code so an attacker
+// gets no confirmation that an injection attempt was specifically detected.
 export class DisallowedContentError {}
 
 export function useStoryQuery(storyId: string, l: string, r: string) {
@@ -251,9 +252,10 @@ export function useScanMutation() {
 
         if (res.status === 422) {
           const body = await res.json().catch(() => null);
-          if (body && body.error === "no_target_language") {
-            throw new NoTargetLanguageError();
-          }
+          const code = body && typeof body.error === "string" ? body.error : "";
+          if (code === "disallowed_content")
+            throw new DisallowedContentError();
+          if (code === "no_target_language") throw new NoTargetLanguageError();
           throw new Error("Unexpected 422 result for scan");
         }
         if (!res.ok) {
@@ -276,7 +278,7 @@ export function useScanMutation() {
 
 // useUploadMutation drives the user-pasted-text ingest flow. The request is a
 // small JSON body so we send it directly (no multipart). The backend may
-// return a 422 with one of three specific error codes; we surface each as a
+// return a 422 with one of two specific error codes; we surface each as a
 // dedicated typed error so the UI can localize messages.
 export function useUploadMutation() {
   const queryClient = useQueryClient();
@@ -308,7 +310,6 @@ export function useUploadMutation() {
         if (res.status === 422) {
           const body = await res.json().catch(() => null);
           const code = body && typeof body.error === "string" ? body.error : "";
-          if (code === "prompt_injection") throw new PromptInjectionError();
           if (code === "disallowed_content")
             throw new DisallowedContentError();
           if (code === "no_target_language") throw new NoTargetLanguageError();

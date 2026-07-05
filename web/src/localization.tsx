@@ -52,6 +52,7 @@ export interface LocalizationStrings {
   generate_story_button: string;
   scan_button: string;
   scan_no_target_text_error: string;
+  scan_error_disallowed: string;
   scan_error: string;
   upload_button: string;
   upload_title_pre: string;
@@ -62,7 +63,6 @@ export interface LocalizationStrings {
   upload_in_progress: string;
   upload_login_prompt: string;
   upload_too_long: string;
-  upload_error_prompt_injection: string;
   upload_error_disallowed: string;
   upload_error_no_target_text: string;
   upload_error_generic: string;
@@ -207,6 +207,8 @@ const strings = new Map<string, LocalizationStrings>([
       scan_button: "Scan",
       scan_no_target_text_error:
         "No text in your learned language was found in the image",
+      scan_error_disallowed:
+        "The text in this image isn't allowed as learning material. Please try a different page.",
       scan_error: "Couldn't process the image — try again",
       upload_button: "Upload text",
       upload_title_pre: "Upload your own",
@@ -218,8 +220,6 @@ const strings = new Map<string, LocalizationStrings>([
       upload_in_progress: "Processing...",
       upload_login_prompt: "Log in to upload your own text",
       upload_too_long: "Text is too long",
-      upload_error_prompt_injection:
-        "This text looks like an instruction for the AI, not reading material. Please paste plain text.",
       upload_error_disallowed:
         "This text isn't allowed as learning material. Please try a different passage.",
       upload_error_no_target_text:
@@ -410,6 +410,8 @@ const strings = new Map<string, LocalizationStrings>([
       scan_button: "Scannen",
       scan_no_target_text_error:
         "Im Bild wurde kein Text in deiner Lernsprache gefunden",
+      scan_error_disallowed:
+        "Der Text in diesem Bild ist nicht als Lernmaterial zugelassen. Bitte versuche es mit einer anderen Seite.",
       scan_error: "Bild konnte nicht verarbeitet werden — bitte erneut versuchen",
       upload_button: "Text einfügen",
       upload_title_pre: "Eigenen",
@@ -421,8 +423,6 @@ const strings = new Map<string, LocalizationStrings>([
       upload_in_progress: "Wird verarbeitet...",
       upload_login_prompt: "Einloggen, um eigenen Text hochzuladen",
       upload_too_long: "Text ist zu lang",
-      upload_error_prompt_injection:
-        "Dieser Text wirkt wie eine Anweisung an die KI, nicht wie Lesematerial. Bitte füge einfachen Text ein.",
       upload_error_disallowed:
         "Dieser Text ist nicht als Lernmaterial zugelassen. Bitte versuche es mit einem anderen Auszug.",
       upload_error_no_target_text:
@@ -614,6 +614,8 @@ const strings = new Map<string, LocalizationStrings>([
       scan_button: "Сканировать",
       scan_no_target_text_error:
         "На изображении не найден текст на изучаемом языке",
+      scan_error_disallowed:
+        "Текст на этом изображении нельзя использовать как учебный материал. Попробуйте другую страницу.",
       scan_error: "Не удалось обработать изображение — попробуйте ещё раз",
       upload_button: "Загрузить текст",
       upload_title_pre: "Загрузите свой",
@@ -625,8 +627,6 @@ const strings = new Map<string, LocalizationStrings>([
       upload_in_progress: "Обработка...",
       upload_login_prompt: "Войдите, чтобы загрузить свой текст",
       upload_too_long: "Текст слишком длинный",
-      upload_error_prompt_injection:
-        "Этот текст похож на инструкцию для ИИ, а не на материал для чтения. Вставьте, пожалуйста, обычный текст.",
       upload_error_disallowed:
         "Этот текст нельзя использовать как учебный материал. Попробуйте другой отрывок.",
       upload_error_no_target_text:

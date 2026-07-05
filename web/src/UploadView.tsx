@@ -4,7 +4,6 @@ import {
   CancelledError,
   DisallowedContentError,
   NoTargetLanguageError,
-  PromptInjectionError,
   useUploadMutation,
 } from "./queries";
 import { useLoggedIn } from "./firebase";
@@ -33,7 +32,9 @@ export function UploadView({ l, r }: { l: string; r: string }) {
       navigate("/login");
       return;
     }
-    if (!upload.isIdle) return;
+    // Allow submitting from the error state (retry); block only while a
+    // request is in flight or when we're about to navigate after success.
+    if (upload.isPending || upload.isSuccess) return;
     const trimmed = text.trim();
     if (trimmed === "") return;
     abortRef.current = new AbortController();
@@ -62,24 +63,26 @@ export function UploadView({ l, r }: { l: string; r: string }) {
   const sectionLabel =
     "text-xs font-semibold uppercase tracking-[0.2em] leading-none text-secondary-text";
 
-  // We render a single button label that reflects the current state. The
-  // error states share the button (rather than a separate banner) so the user
-  // can tap to retry.
-  const buttonLabel = (() => {
-    if (!loggedIn) return strings.upload_login_prompt;
-    if (upload.isPending) return strings.upload_in_progress;
-    if (upload.isError) {
-      const err = upload.error;
-      if (err instanceof PromptInjectionError)
-        return strings.upload_error_prompt_injection;
-      if (err instanceof DisallowedContentError)
-        return strings.upload_error_disallowed;
-      if (err instanceof NoTargetLanguageError)
-        return strings.upload_error_no_target_text;
-      return strings.upload_error_generic;
-    }
-    return strings.upload_submit;
+  // Errors are shown in a red line above the submit button; the button
+  // itself always keeps its action label so it stays tappable for a retry.
+  // CancelledError is excluded: the reset effect above clears it, and this
+  // guard prevents a one-frame flash of the generic message before that
+  // effect runs.
+  const errorMessage = (() => {
+    if (!upload.isError || upload.error instanceof CancelledError) return null;
+    const err = upload.error;
+    if (err instanceof DisallowedContentError)
+      return strings.upload_error_disallowed;
+    if (err instanceof NoTargetLanguageError)
+      return strings.upload_error_no_target_text;
+    return strings.upload_error_generic;
   })();
+
+  const buttonLabel = !loggedIn
+    ? strings.upload_login_prompt
+    : upload.isPending
+      ? strings.upload_in_progress
+      : strings.upload_submit;
 
   const trimmedEmpty = text.trim() === "";
   const tooLong = text.length > MAX_CHARS;
@@ -138,14 +141,24 @@ export function UploadView({ l, r }: { l: string; r: string }) {
         )}
       </section>
 
-      <button
-        type="button"
-        onClick={handleSubmit}
-        className="w-full py-4 rounded-xl bg-primary text-white text-lg font-bold transition-colors hover:bg-primary-hover disabled:opacity-50"
-        disabled={!canSubmit}
-      >
-        {buttonLabel}
-      </button>
+      <section className="flex flex-col gap-3">
+        {errorMessage && (
+          <div
+            role="alert"
+            className="text-sm font-semibold text-red-500 text-center"
+          >
+            {errorMessage}
+          </div>
+        )}
+        <button
+          type="button"
+          onClick={handleSubmit}
+          className="w-full py-4 rounded-xl bg-primary text-white text-lg font-bold transition-colors hover:bg-primary-hover disabled:opacity-50"
+          disabled={!canSubmit}
+        >
+          {buttonLabel}
+        </button>
+      </section>
     </div>
   );
 }
