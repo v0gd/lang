@@ -43,20 +43,75 @@ const claudeFable5ModelId anthropic.Model = "claude-fable-5"
 
 const maxTokens = 8192
 
-// logGptUsage records token accounting for an OpenAI response on the trace.
-// The cached count shows whether the provider prompt cache is being hit:
-// OpenAI caches automatically, but only for prompts >= 1024 tokens and only
-// when the token prefix matches a recent request exactly.
-func logGptUsage(trace *telemetry.Trace, usage openai.CompletionUsage) {
-	trace.Log(fmt.Sprintf(
-		"token usage: prompt=%d (cached=%d) completion=%d",
-		usage.PromptTokens, usage.PromptTokensDetails.CachedTokens, usage.CompletionTokens))
+// modelPricing holds USD prices per one million tokens. The providers do not
+// return cost in API responses, so cost is estimated locally from token usage
+// using these hardcoded rates (taken from the official pricing pages,
+// last verified July 2026).
+type modelPricing struct {
+	InputPerMTok       float64
+	CachedInputPerMTok float64 // OpenAI cached prompt tokens / Anthropic cache reads
+	CacheWritePerMTok  float64 // Anthropic 5-minute cache writes; unused for OpenAI
+	OutputPerMTok      float64
 }
 
-func logClaudeUsage(trace *telemetry.Trace, usage anthropic.Usage) {
+var openaiPricingByModel = map[openai.ChatModel]modelPricing{
+	openai.ChatModel("gpt-5.5"): {
+		InputPerMTok: 5.00, CachedInputPerMTok: 0.50, OutputPerMTok: 30.00},
+	openai.ChatModelGPT5_4Mini: {
+		InputPerMTok: 0.75, CachedInputPerMTok: 0.075, OutputPerMTok: 4.50},
+}
+
+var anthropicPricingByModel = map[anthropic.Model]modelPricing{
+	anthropic.ModelClaudeSonnet4_6: {
+		InputPerMTok: 3.00, CachedInputPerMTok: 0.30, CacheWritePerMTok: 3.75, OutputPerMTok: 15.00},
+	anthropic.ModelClaudeOpus4_7: {
+		InputPerMTok: 5.00, CachedInputPerMTok: 0.50, CacheWritePerMTok: 6.25, OutputPerMTok: 25.00},
+	claudeFable5ModelId: {
+		InputPerMTok: 10.00, CachedInputPerMTok: 1.00, CacheWritePerMTok: 12.50, OutputPerMTok: 50.00},
+}
+
+func formatCostEstimate(costUsd float64) string {
+	return fmt.Sprintf("~$%.4f", costUsd)
+}
+
+// logGptUsage records token accounting and a local cost estimate for an
+// OpenAI response on the trace. The cached count shows whether the provider
+// prompt cache is being hit: OpenAI caches automatically, but only for
+// prompts >= 1024 tokens and only when the token prefix matches a recent
+// request exactly. Cached prompt tokens are included in PromptTokens, so they
+// are subtracted before applying the full input rate.
+func logGptUsage(trace *telemetry.Trace, model openai.ChatModel, usage openai.CompletionUsage) {
+	costEstimate := "cost=unknown (model missing from pricing table)"
+	if pricing, ok := openaiPricingByModel[model]; ok {
+		cachedTokens := usage.PromptTokensDetails.CachedTokens
+		costUsd := (float64(usage.PromptTokens-cachedTokens)*pricing.InputPerMTok +
+			float64(cachedTokens)*pricing.CachedInputPerMTok +
+			float64(usage.CompletionTokens)*pricing.OutputPerMTok) / 1e6
+		costEstimate = "cost=" + formatCostEstimate(costUsd)
+	}
 	trace.Log(fmt.Sprintf(
-		"token usage: input=%d (cacheRead=%d cacheWrite=%d) output=%d",
-		usage.InputTokens, usage.CacheReadInputTokens, usage.CacheCreationInputTokens, usage.OutputTokens))
+		"token usage: prompt=%d (cached=%d) completion=%d %s",
+		usage.PromptTokens, usage.PromptTokensDetails.CachedTokens, usage.CompletionTokens,
+		costEstimate))
+}
+
+// logClaudeUsage records token accounting and a local cost estimate for an
+// Anthropic response on the trace. Unlike OpenAI, InputTokens excludes cache
+// reads/writes, so each bucket is priced independently. Cache writes are
+// priced at the 5-minute rate (the default cache_control TTL).
+func logClaudeUsage(trace *telemetry.Trace, model anthropic.Model, usage anthropic.Usage) {
+	costEstimate := "cost=unknown (model missing from pricing table)"
+	if pricing, ok := anthropicPricingByModel[model]; ok {
+		costUsd := (float64(usage.InputTokens)*pricing.InputPerMTok +
+			float64(usage.CacheReadInputTokens)*pricing.CachedInputPerMTok +
+			float64(usage.CacheCreationInputTokens)*pricing.CacheWritePerMTok +
+			float64(usage.OutputTokens)*pricing.OutputPerMTok) / 1e6
+		costEstimate = "cost=" + formatCostEstimate(costUsd)
+	}
+	trace.Log(fmt.Sprintf(
+		"token usage: input=%d (cacheRead=%d cacheWrite=%d) output=%d %s",
+		usage.InputTokens, usage.CacheReadInputTokens, usage.CacheCreationInputTokens,
+		usage.OutputTokens, costEstimate))
 }
 
 // Invoke runs a plain text-only chat completion. The context is forwarded
@@ -110,7 +165,7 @@ func invokeGpt(ctx context.Context, role string, content string, model openai.Ch
 	if err != nil {
 		return "", err
 	}
-	logGptUsage(trace, resp.Usage)
+	logGptUsage(trace, model, resp.Usage)
 
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("no choices returned")
@@ -132,9 +187,9 @@ func invokeClaude(ctx context.Context, role string, content string, model anthro
 	defer trace.Stop()
 
 	params := anthropic.MessageNewParams{
-		Model:       model,
-		MaxTokens:   maxTokens,
-		Messages:    []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(content))},
+		Model:     model,
+		MaxTokens: maxTokens,
+		Messages:  []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(content))},
 	}
 	if role != "" {
 		params.System = []anthropic.TextBlockParam{{Text: role}}
@@ -144,7 +199,7 @@ func invokeClaude(ctx context.Context, role string, content string, model anthro
 	if err != nil {
 		return "", err
 	}
-	logClaudeUsage(trace, resp.Usage)
+	logClaudeUsage(trace, model, resp.Usage)
 
 	if resp.StopReason != anthropic.StopReasonEndTurn {
 		return "", fmt.Errorf("finished with non-end_turn reason: %s", resp.StopReason)
@@ -246,7 +301,7 @@ func invokeGptStructured(ctx context.Context, role string, content string, schem
 	if err != nil {
 		return "", err
 	}
-	logGptUsage(trace, resp.Usage)
+	logGptUsage(trace, model, resp.Usage)
 
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("no choices returned")
@@ -277,9 +332,9 @@ func invokeClaudeStructured(ctx context.Context, role string, content string, sc
 	}
 
 	params := anthropic.MessageNewParams{
-		Model:       model,
-		MaxTokens:   maxTokens,
-		Messages:    []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(content))},
+		Model:     model,
+		MaxTokens: maxTokens,
+		Messages:  []anthropic.MessageParam{anthropic.NewUserMessage(anthropic.NewTextBlock(content))},
 		OutputConfig: anthropic.OutputConfigParam{
 			Format: anthropic.JSONOutputFormatParam{
 				Schema: schemaMap,
@@ -294,7 +349,7 @@ func invokeClaudeStructured(ctx context.Context, role string, content string, sc
 	if err != nil {
 		return "", err
 	}
-	logClaudeUsage(trace, resp.Usage)
+	logClaudeUsage(trace, model, resp.Usage)
 
 	if resp.StopReason != anthropic.StopReasonEndTurn {
 		return "", fmt.Errorf("finished with non-end_turn reason: %s", resp.StopReason)
@@ -406,7 +461,7 @@ func invokeGptStructuredWithImages(
 	if err != nil {
 		return "", err
 	}
-	logGptUsage(trace, resp.Usage)
+	logGptUsage(trace, model, resp.Usage)
 
 	if len(resp.Choices) == 0 {
 		return "", fmt.Errorf("no choices returned")
