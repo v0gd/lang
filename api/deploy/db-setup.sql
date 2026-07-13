@@ -166,4 +166,45 @@ CREATE TABLE user_dictionary_word (
     FOREIGN KEY (dictionary_entry_id) REFERENCES dictionary_entry(id)
 );
 
+-- Per-user spaced-repetition state, one row per (user, dictionary sense). A
+-- row is created/reset when the user opens the word's explanation — the
+-- signal that the word is not known. The repetition ladder (stage count and
+-- intervals) is hardcoded in the review package; due_at is precomputed there
+-- on every event, so selecting "the words most due for repetition" is a pure
+-- index range scan on (user_id, r, due_at) with no scoring at read time.
+--
+-- Deliberately separate from user_dictionary_word (the curated "My
+-- Dictionary" list): opening an explanation counts whether or not the word is
+-- saved, and unsaving a word must not erase its review history. Being saved
+-- only shortens the interval, folded into due_at when it is computed.
+CREATE TABLE user_word_review (
+    user_id BIGINT UNSIGNED NOT NULL,
+    dictionary_entry_id BIGINT UNSIGNED NOT NULL,
+    -- Learned language, denormalized from dictionary_entry so the due-words
+    -- query can run on this table's index alone, without a join.
+    r VARCHAR(10) NOT NULL,
+    -- Rung on the repetition ladder. 0 = the user just failed the word by
+    -- opening its explanation; review.PromoteWordsToNextStage advances it one
+    -- rung when the word is shown to the user again. A stage one past the
+    -- last rung means the word is learned.
+    stage TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    -- When the word next wants to appear in a generated story. Learned words
+    -- park at a far-future sentinel ('9999-01-01'), hence DATETIME rather
+    -- than TIMESTAMP with its 2038 cap.
+    due_at DATETIME NOT NULL,
+    last_impression_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    total_impressions INT UNSIGNED NOT NULL DEFAULT 1,
+    -- Bounded audit trail of the most recent impressions, newest first, as
+    -- [{"t": "<RFC3339 UTC>", "kind": "explained"}, ...]. Informational only
+    -- (debugging, future algorithm tuning) — never used in WHERE or ORDER BY.
+    recent_impressions JSON NOT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, dictionary_entry_id),
+    -- Serves the story generator's future "most due words for this user and
+    -- language" query: equality on (user_id, r), range + order on due_at.
+    INDEX user_word_review_due_idx (user_id, r, due_at),
+    FOREIGN KEY (user_id) REFERENCES user(id),
+    FOREIGN KEY (dictionary_entry_id) REFERENCES dictionary_entry(id)
+);
+
 COMMIT;

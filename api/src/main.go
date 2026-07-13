@@ -12,6 +12,7 @@ import (
 	"lang/api/favorite"
 	"lang/api/firebase"
 	"lang/api/generator"
+	"lang/api/review"
 	"lang/api/safety"
 	"lang/api/tts"
 	"lang/api/user"
@@ -25,6 +26,7 @@ func main() {
 	generator.Setup()
 	explanation.Setup()
 	dictionary.Setup()
+	review.Setup()
 	favorite.Setup()
 	safety.Setup()
 	tts.Setup()

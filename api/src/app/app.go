@@ -28,6 +28,7 @@ import (
 	"lang/api/generator"
 	"lang/api/osutil"
 	"lang/api/progresslines"
+	"lang/api/review"
 	"lang/api/safety"
 	"lang/api/scan"
 	"lang/api/story"
@@ -598,6 +599,14 @@ func getExplanationHandler(w http.ResponseWriter, req *http.Request, u user.User
 				return fmt.Errorf("dictionary.IsSavedForUser error: %w", sErr)
 			}
 			alreadySaved = saved
+			// Opening a word explanation is the "user didn't know this word"
+			// signal for spaced repetition: reset the word's review state and
+			// schedule its next due time. Best-effort — a bookkeeping failure
+			// must not deny the user their explanation.
+			rErr := review.RecordWordExplanationShown(req.Context(), u.Id, expl.DictionaryEntryId.Int64, r, alreadySaved)
+			if rErr != nil && req.Context().Err() == nil {
+				slog.Error(fmt.Sprintf("Failed to record word review impression: %v", rErr))
+			}
 		}
 		return writeJSON(w, map[string]any{
 			"content":             expl.Content,
