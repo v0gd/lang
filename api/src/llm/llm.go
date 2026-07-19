@@ -36,10 +36,10 @@ const (
 	ClaudeFable  Model = "ClaudeFable"
 )
 
-// claudeFable5ModelId is the Claude Fable 5 API model id. The pinned
-// anthropic-sdk-go version (v1.38.0) predates the Fable 5 release and has no
-// constant for it yet, so the id is spelled out here.
+
+// Following models are not yet supported by the SDKs, so we use the raw model ids.
 const claudeFable5ModelId anthropic.Model = "claude-fable-5"
+const gpt5_6SolModelId openai.ChatModel = "gpt-5.6-sol"
 
 const maxTokens = 8192
 
@@ -55,7 +55,7 @@ type modelPricing struct {
 }
 
 var openaiPricingByModel = map[openai.ChatModel]modelPricing{
-	openai.ChatModel("gpt-5.5"): {
+	gpt5_6SolModelId: {
 		InputPerMTok: 5.00, CachedInputPerMTok: 0.50, OutputPerMTok: 30.00},
 	openai.ChatModelGPT5_4Mini: {
 		InputPerMTok: 0.75, CachedInputPerMTok: 0.075, OutputPerMTok: 4.50},
@@ -126,7 +126,7 @@ func logClaudeUsage(trace *telemetry.Trace, model anthropic.Model, usage anthrop
 func Invoke(ctx context.Context, role string, content string, model Model, cacheKey string) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGpt(ctx, role, content, openai.ChatModel("gpt-5.5"), cacheKey)
+		return invokeGpt(ctx, role, content, gpt5_6SolModelId, cacheKey)
 	case GptMini:
 		return invokeGpt(ctx, role, content, openai.ChatModelGPT5_4Mini, cacheKey)
 	case ClaudeSonnet:
@@ -252,7 +252,7 @@ type StructuredOutputSchema struct {
 func InvokeStructured(ctx context.Context, role string, content string, schema StructuredOutputSchema, model Model) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGptStructured(ctx, role, content, schema, openai.ChatModel("gpt-5.5"))
+		return invokeGptStructured(ctx, role, content, schema, gpt5_6SolModelId)
 	case GptMini:
 		return invokeGptStructured(ctx, role, content, schema, openai.ChatModelGPT5_4Mini)
 	case ClaudeSonnet:
@@ -389,7 +389,7 @@ func InvokeStructuredWithImages(
 ) (string, error) {
 	switch model {
 	case Gpt:
-		return invokeGptStructuredWithImages(ctx, role, content, images, schema, openai.ChatModel("gpt-5.5"))
+		return invokeGptStructuredWithImages(ctx, role, content, images, schema, gpt5_6SolModelId)
 	case GptMini:
 		return invokeGptStructuredWithImages(ctx, role, content, images, schema, openai.ChatModelGPT5_4Mini)
 	default:
